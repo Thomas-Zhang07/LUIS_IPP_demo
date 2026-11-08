@@ -1,0 +1,10 @@
+numpy>=1.24
+pyserial>=3.5
+
+# Development / test tooling
+pytest>=8.0
+
+# Optional: required only for the plotting flags in
+# transducer_phase_steer_2d.py (--plot-array-factor,
+# --plot-phase-rotation).
+# matplotlib>=3.7

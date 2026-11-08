@@ -1,0 +1,55 @@
+# Cleanup progress tracker
+
+Working rule: one logical change per commit; each commit must pass
+`python -m compileall -q .` and `pytest -q`. This file is ticked in the same
+commit that closes an item and is deleted when the cleanup is complete.
+
+> Baseline exception: `python -m compileall` is red at commit 1 because of the
+> pre-existing `onoff.py` encoding failure (D1). It turns green at commit 2.
+
+## Commit sequence
+
+- [x] 1. `chore: bootstrap test tooling, changelog and tracker`
+- [ ] 2. `fix(encoding): convert GBK sources to UTF-8 and repair onoff.py`
+- [ ] 3. `feat(protocol): shared frame builders and serial transport`
+- [ ] 4. `refactor(serial-utils): unify port selection`
+- [ ] 5. `refactor(all-on): use shared protocol layer`
+- [ ] 6. `feat(acoustics): shared physics and quantization`
+- [ ] 7. `fix(focus): shared physics; dry-run never prompts for a port`
+- [ ] 8. `feat(trajectory): deadline-based streaming and generators`
+- [ ] 9. `refactor(line-circle): adopt shared trajectory runner`
+- [ ] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
+- [ ] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
+- [ ] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
+- [ ] 13. `feat(array-factor): extract analysis module; remove dead beta code`
+- [ ] 14. `refactor(phase-steer): shared acoustics; carrier flags`
+- [ ] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
+- [ ] 16. `refactor(mode-control): main guard, --port/--dry-run`
+- [ ] 17. `docs: rewrite README from actual behavior`
+- [ ] 18. `chore: final verification, changelog and tracker cleanup`
+- [ ] 19. Independent code-review agent pass; address findings
+
+## Defects
+
+- [x] D14 — no `requirements.txt`, no tests (commit 1)
+- [ ] D1 — `onoff.py` GBK without coding declaration → SyntaxError
+- [ ] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`)
+- [ ] D3 — README contains 8 U+FFFD characters
+- [ ] D4 — `--dry-run` prompts for / requires a port (hover, vortex)
+- [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)
+- [ ] D6 — wavelength inconsistency
+- [ ] D7 — circle default 2.0 s vs docs 5 s
+- [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
+- [ ] D9 — dead beta-optimization code (168 lines)
+- [ ] D10 — duplicated port selection / serial config / frame builders / focus math
+- [ ] D11 — `assert` used for validation
+- [ ] D12 — drifting `sleep(interval)` in line trajectory
+- [ ] D13 — `mode_control.py` runs on import, hardcoded COM9
+- [ ] D15 — README omits scripts and has stale samples
+
+## Verification checkpoints
+
+- [ ] Phase 1 (commits 1–6): compile + tests green; encoding audit clean
+- [ ] Phase 2 (commits 7–12): hardware-free dry-runs for all streaming scripts
+- [ ] Phase 3 (commits 13–18): full test suite + dry-run matrix
+- [ ] Post-cleanup: independent code-review agent pass, findings triaged/fixed
