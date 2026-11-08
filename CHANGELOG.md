@@ -24,7 +24,9 @@ semantic versioning once releases are tagged.
   sidelobe evaluation, and plotting.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
-- `docs/cleanup-progress.md` to track the repository cleanup.
+- Hardware-free pytest suite (138 tests) covering the frame protocol,
+  transmit order, acoustics and quantization, streaming deadlines, dry-run
+  safety, mode control, README consistency, and CLI flag preservation.
 
 ### Changed
 
