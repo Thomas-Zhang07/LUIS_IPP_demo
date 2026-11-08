@@ -195,3 +195,43 @@ def test_rotation_duration_does_not_oversleep(fake_serial_factory, fake_clock):
     )
     assert summary["frames_sent"] == 1
     assert fake_clock.now == pytest.approx(0.4, abs=1e-6)  # 0.3 settle + 0.1
+
+
+@pytest.mark.parametrize("script", ["onoff.py", "transducer_onoff_demo.py"])
+def test_invalid_frequency_fails_cleanly(script):
+    result = subprocess.run(
+        [sys.executable, script, "--dry-run", "--frequency", "30000"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert "Frequency must be between" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_invalid_rotation_timing_fails_cleanly():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "transducer_phase_steer_2d.py",
+            "--dry-run",
+            "--rotate",
+            "--beta",
+            "30",
+            "--mode",
+            "two",
+            "--rotation-period",
+            "0",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert "Rotation period" in result.stderr
+    assert "Traceback" not in result.stderr

@@ -217,11 +217,14 @@ def main(argv: list[str] | None = None) -> None:
 
         dry_run_duration = args.duration
         if args.dry_run and dry_run_duration is None:
-            dry_run_duration = calculate_rotation_timing(
-                args.rotation_period,
-                args.update_interval,
-                mode=mode,
-            )["effective_rotation_period_s"]
+            try:
+                dry_run_duration = calculate_rotation_timing(
+                    args.rotation_period,
+                    args.update_interval,
+                    mode=mode,
+                )["effective_rotation_period_s"]
+            except ValueError as error:
+                parser.error(str(error))
             print(
                 "Dry-run defaults to one estimated revolution; use --duration to change it."
             )

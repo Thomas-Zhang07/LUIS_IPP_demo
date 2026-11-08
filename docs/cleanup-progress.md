@@ -65,7 +65,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] R4 — rotation deadlines anchored per-frame rather than to the epoch
 - [x] R5 — document focus/steering phase-sign and vortex-center caveats
 - [x] R6a — timed waits slept past `--duration`
-- [ ] R6b — uncaught `ValueError` for invalid frequency / rotation timing
+- [x] R6b — uncaught `ValueError` for invalid frequency / rotation timing
 - [ ] R6c — rotation accepted `beta=180`, which produces no rotation
 - [ ] R6d — README table pipe breaks Markdown rendering
 - [ ] R6e — note remaining follow-ups (duplicated frequency parsing;

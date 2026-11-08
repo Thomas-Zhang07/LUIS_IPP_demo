@@ -112,6 +112,8 @@ def main():
     except KeyboardInterrupt:
         print("\nCancelled.")
         return
+    except ValueError as error:
+        parser.error(str(error))
 
     if args.duration is not None:
         duration_seconds = args.duration

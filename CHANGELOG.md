@@ -45,6 +45,8 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Invalid `--frequency` values and invalid rotation timing now produce a
+  standard argparse error and exit status 2 instead of a traceback.
 - Timed runs now clamp waits to the remaining `--duration`, so a short run
   no longer sleeps for a full interval (or several seconds) before stopping.
 - Rotation scheduling now anchors each next-frame deadline to the rotation
