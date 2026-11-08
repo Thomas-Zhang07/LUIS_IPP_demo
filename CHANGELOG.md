@@ -20,6 +20,8 @@ semantic versioning once releases are tagged.
 - Shared `trajectory.py`: circle/line point generators, ping-pong indexing,
   absolute-deadline frame streaming, and single-connection ON/OFF and
   bit-pattern runners.
+- Shared `array_factor.py`: physical phase grid, theoretical array factor,
+  sidelobe evaluation, and plotting.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
 - `docs/cleanup-progress.md` to track the repository cleanup.
@@ -55,6 +57,9 @@ semantic versioning once releases are tagged.
 - `transducer_onoff_steer.py` now uses the shared steering and toggle code.
   It adds `--carrier-frequency`/`--sound-speed` (leaving `--frequency` as the
   ON/OFF toggle rate) and keeps sending an OFF frame before exit.
+- Removed 168 lines of unreachable beta-optimization code
+  (`rank_beta_candidates`, `optimize_beta`, `plot_beta_optimization`) from
+  `transducer_phase_steer_2d.py` (D9).
 
 ### Fixed
 

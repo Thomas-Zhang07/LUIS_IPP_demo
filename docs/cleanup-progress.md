@@ -20,7 +20,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
 - [x] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
 - [x] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
-- [ ] 13. `feat(array-factor): extract analysis module; remove dead beta code`
+- [x] 13. `feat(array-factor): extract analysis module; remove dead beta code`
 - [ ] 14. `refactor(phase-steer): shared acoustics; carrier flags`
 - [ ] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
 - [ ] 16. `refactor(mode-control): main guard, --port/--dry-run`
@@ -39,7 +39,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D6 — wavelength inconsistency (commit 6)
 - [x] D7 — circle default 2.0 s vs docs 5 s (commit 9)
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
-- [ ] D9 — dead beta-optimization code (168 lines)
+- [x] D9 — dead beta-optimization code (168 lines) (commit 13)
 - [ ] D10 — duplicated port selection / serial config / frame builders / focus math
 - [x] D11 — `assert` used for validation (commit 7)
 - [x] D12 — drifting `sleep(interval)` in line trajectory (commit 9)
