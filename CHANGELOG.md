@@ -52,6 +52,9 @@ semantic versioning once releases are tagged.
   requested rate exceeds the ~7.44 Hz / ~67 ms wire-time limit (D5).
 - `transducer_onoff_demo.py` now uses the shared toggle runner and adds
   `--dry-run`; its once-per-run port behavior is unchanged.
+- `transducer_onoff_steer.py` now uses the shared steering and toggle code.
+  It adds `--carrier-frequency`/`--sound-speed` (leaving `--frequency` as the
+  ON/OFF toggle rate) and keeps sending an OFF frame before exit.
 
 ### Fixed
 

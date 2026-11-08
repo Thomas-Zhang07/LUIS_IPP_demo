@@ -19,7 +19,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 9. `refactor(line-circle): adopt shared trajectory runner`
 - [x] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
 - [x] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
-- [ ] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
+- [x] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
 - [ ] 13. `feat(array-factor): extract analysis module; remove dead beta code`
 - [ ] 14. `refactor(phase-steer): shared acoustics; carrier flags`
 - [ ] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
@@ -50,6 +50,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 
 - [x] Phase 1 (commits 1–6): compile + tests green; .py encoding audit clean
       (README U+FFFD remains until commit 17)
-- [ ] Phase 2 (commits 7–12): hardware-free dry-runs for all streaming scripts
+- [x] Phase 2 (commits 7–12): hardware-free dry-runs for all streaming scripts
+      (11/11 exit 0)
 - [ ] Phase 3 (commits 13–18): full test suite + dry-run matrix
 - [ ] Post-cleanup: independent code-review agent pass, findings triaged/fixed
