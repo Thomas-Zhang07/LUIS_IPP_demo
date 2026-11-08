@@ -23,7 +23,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 13. `feat(array-factor): extract analysis module; remove dead beta code`
 - [x] 14. `refactor(phase-steer): shared acoustics; carrier flags`
 - [x] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
-- [ ] 16. `refactor(mode-control): main guard, --port/--dry-run`
+- [x] 16. `refactor(mode-control): main guard, --port/--dry-run`
 - [ ] 17. `docs: rewrite README from actual behavior`
 - [ ] 18. `chore: final verification, changelog and tracker cleanup`
 - [ ] 19. AGY reviewer (`consult_agy`) + independent code-review agent pass; address findings
@@ -40,10 +40,10 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D7 — circle default 2.0 s vs docs 5 s (commit 9)
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
 - [x] D9 — dead beta-optimization code (168 lines) (commit 13)
-- [ ] D10 — duplicated port selection / serial config / frame builders / focus math
+- [x] D10 — duplicated port selection / serial config / frame builders / focus math (commits 3–16)
 - [x] D11 — `assert` used for validation (commit 7)
 - [x] D12 — drifting `sleep(interval)` in line trajectory (commit 9)
-- [ ] D13 — `mode_control.py` runs on import, hardcoded COM9
+- [x] D13 — `mode_control.py` runs on import, hardcoded COM9 (commit 16)
 - [ ] D15 — README omits scripts and has stale samples
 
 ## Verification checkpoints

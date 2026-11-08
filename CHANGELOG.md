@@ -66,6 +66,10 @@ semantic versioning once releases are tagged.
   math, frame building, rotation timing and plotting now come from the shared
   modules. All existing flags, including the `--angle`/`--legacy-angle` alias
   and both plot flags, are preserved; `--frequency`/`--sound-speed` are added.
+- `mode_control.py` is now an import-safe CLI with `--port`, `--mode`,
+  `--dry-run` and `--list-ports` instead of executing on import with a
+  hardcoded `COM9` (D13). The mode command byte and all-off frame are
+  unchanged and documented.
 
 ### Fixed
 
