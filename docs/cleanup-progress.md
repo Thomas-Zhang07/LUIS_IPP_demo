@@ -18,7 +18,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 8. `feat(trajectory): deadline-based streaming and generators`
 - [x] 9. `refactor(line-circle): adopt shared trajectory runner`
 - [x] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
-- [ ] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
+- [x] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
 - [ ] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
 - [ ] 13. `feat(array-factor): extract analysis module; remove dead beta code`
 - [ ] 14. `refactor(phase-steer): shared acoustics; carrier flags`

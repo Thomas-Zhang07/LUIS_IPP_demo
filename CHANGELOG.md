@@ -50,6 +50,8 @@ semantic versioning once releases are tagged.
 - `onoff.py` and `bit_pattern_onoff.py` now open the serial port once per run
   instead of once per half-cycle/bit, add `--dry-run`, and warn when the
   requested rate exceeds the ~7.44 Hz / ~67 ms wire-time limit (D5).
+- `transducer_onoff_demo.py` now uses the shared toggle runner and adds
+  `--dry-run`; its once-per-run port behavior is unchanged.
 
 ### Fixed
 
