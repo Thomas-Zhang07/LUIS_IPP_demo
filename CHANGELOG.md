@@ -13,6 +13,8 @@ semantic versioning once releases are tagged.
   partial-write-checked sends.
 - `serial_utils.resolve_serial_port()`: dry-run-aware port resolution that
   never prompts when no port is needed.
+- Shared `acoustics.py`: focus, vortex, steering and quantization math with
+  configurable carrier frequency and sound speed.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
 - `docs/cleanup-progress.md` to track the repository cleanup.
@@ -23,6 +25,13 @@ semantic versioning once releases are tagged.
   `serial_utils.py`, with injectable input/output functions.
 - `transducer_all_on.py` now uses the shared protocol and serial modules;
   its flags and frame bytes are unchanged.
+
+### Fixed
+
+- Wavelength is now derived consistently from carrier frequency and sound
+  speed (defaults 40 kHz / 343 m/s) instead of 0.00865 m in the focus scripts
+  and 343/40000 m in the steering scripts. Focus and vortex frame bytes shift
+  by about 0.87% (D6).
 
 ### Fixed
 

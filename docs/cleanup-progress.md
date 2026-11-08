@@ -13,7 +13,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 3. `feat(protocol): shared frame builders and serial transport`
 - [x] 4. `refactor(serial-utils): unify port selection`
 - [x] 5. `refactor(all-on): use shared protocol layer`
-- [ ] 6. `feat(acoustics): shared physics and quantization`
+- [x] 6. `feat(acoustics): shared physics and quantization`
 - [ ] 7. `fix(focus): shared physics; dry-run never prompts for a port`
 - [ ] 8. `feat(trajectory): deadline-based streaming and generators`
 - [ ] 9. `refactor(line-circle): adopt shared trajectory runner`
@@ -36,7 +36,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [ ] D3 — README contains 8 U+FFFD characters
 - [ ] D4 — `--dry-run` prompts for / requires a port (hover, vortex)
 - [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)
-- [ ] D6 — wavelength inconsistency
+- [x] D6 — wavelength inconsistency (commit 6)
 - [ ] D7 — circle default 2.0 s vs docs 5 s
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
 - [ ] D9 — dead beta-optimization code (168 lines)
@@ -48,7 +48,8 @@ commit that closes an item and is deleted when the cleanup is complete.
 
 ## Verification checkpoints
 
-- [ ] Phase 1 (commits 1–6): compile + tests green; encoding audit clean
+- [x] Phase 1 (commits 1–6): compile + tests green; .py encoding audit clean
+      (README U+FFFD remains until commit 17)
 - [ ] Phase 2 (commits 7–12): hardware-free dry-runs for all streaming scripts
 - [ ] Phase 3 (commits 13–18): full test suite + dry-run matrix
 - [ ] Post-cleanup: independent code-review agent pass, findings triaged/fixed
