@@ -20,9 +20,10 @@ beam steering, array-factor analysis, and simple ON/OFF patterns.
   as the hardware contract.
 
 At 38400 baud one frame takes about **67 ms** on the wire. A full-frame ON/OFF
-toggle therefore tops out near **7.4 Hz**; the human-hearing range advertised
-by some legacy flags (20–20000 Hz) cannot be reached by resending full frames.
-The ON/OFF scripts print this limit and warn when a request exceeds it.
+toggle therefore tops out near **7.4 Hz**. The ON/OFF scripts accept rates from
+0.1 Hz to 20000 Hz for compatibility, but only rates below about 7.4 Hz are
+achievable by resending full frames; they print this limit and warn when a
+request exceeds it.
 
 ## Requirements
 

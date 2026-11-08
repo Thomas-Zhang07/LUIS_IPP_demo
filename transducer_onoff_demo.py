@@ -19,7 +19,7 @@ from protocol import BAUD_RATE, build_off_frame, build_on_frame  # noqa: E402
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
 from trajectory import run_toggle  # noqa: E402
 
-MIN_FREQUENCY_HZ = 20.0
+MIN_FREQUENCY_HZ = 0.1
 MAX_FREQUENCY_HZ = 20000.0
 
 
@@ -32,7 +32,7 @@ def parse_frequency(raw: str) -> float:
     if not math.isfinite(value) or not (
         MIN_FREQUENCY_HZ <= value <= MAX_FREQUENCY_HZ
     ):
-        raise ValueError("Frequency must be between 20 Hz and 20000 Hz.")
+        raise ValueError("Frequency must be between 0.1 Hz and 20000 Hz.")
     return value
 
 
@@ -40,7 +40,7 @@ def prompt_for_frequency() -> float:
     while True:
         try:
             return parse_frequency(
-                input("Enter target frequency in Hz (20 to 20000): ").strip()
+                input("Enter target frequency in Hz (0.1 to 20000): ").strip()
             )
         except ValueError as error:
             print(f"{error}. Please try again.")
@@ -70,7 +70,7 @@ def main():
     )
     parser.add_argument("--port", type=str, help="Serial port to use, e.g. COM3")
     parser.add_argument(
-        "--frequency", type=float, help="Target frequency in Hz (20..20000)"
+        "--frequency", type=float, help="Target frequency in Hz (0.1..20000)"
     )
     parser.add_argument(
         "--duration",

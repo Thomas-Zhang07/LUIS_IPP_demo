@@ -40,6 +40,9 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- ON/OFF scripts now accept rates from 0.1 Hz (previously the 20 Hz floor
+  rejected every rate the UART can actually achieve); they still warn above
+  the ~7.44 Hz full-frame limit.
 - Phase quantization now wraps a boundary value snapped at 2π to bin 0
   instead of clipping it to bin 15, which had introduced a nearly 2π phase
   error on affected transducers.

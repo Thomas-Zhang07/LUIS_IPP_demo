@@ -58,7 +58,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 ## Review follow-ups (AGY + code-review)
 
 - [x] R1 — quantizer snapped a 2π boundary to bin 15 instead of bin 0
-- [ ] R2 — ON/OFF scripts reject UART-achievable rates below 20 Hz
+- [x] R2 — ON/OFF scripts reject UART-achievable rates below 20 Hz
 - [ ] R3 — headless runs crash on `EOFError` instead of a clean message
 - [ ] R4 — rotation deadlines anchored per-frame rather than to the epoch
 - [ ] R5 — document focus/steering phase-sign and vortex-center caveats
