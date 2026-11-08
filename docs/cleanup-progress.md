@@ -10,7 +10,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 
 - [x] 1. `chore: bootstrap test tooling, changelog and tracker`
 - [x] 2. `fix(encoding): convert GBK sources to UTF-8 and repair onoff.py`
-- [ ] 3. `feat(protocol): shared frame builders and serial transport`
+- [x] 3. `feat(protocol): shared frame builders and serial transport`
 - [ ] 4. `refactor(serial-utils): unify port selection`
 - [ ] 5. `refactor(all-on): use shared protocol layer`
 - [ ] 6. `feat(acoustics): shared physics and quantization`

@@ -8,6 +8,9 @@ semantic versioning once releases are tagged.
 
 ### Added
 
+- Shared `protocol.py`: validated frame builders, uniform ON/OFF frames,
+  wire-time calculations, a consistent serial context manager, and
+  partial-write-checked sends.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
 - `docs/cleanup-progress.md` to track the repository cleanup.
