@@ -785,7 +785,13 @@ def run_rotation(
                         f"period={effective_period_s:.3f} s, "
                         f"speed={360.0 / effective_period_s:.2f} deg/s."
                     )
-                next_deadline = frame_started + effective_interval_s
+                if rotation_epoch is None:
+                    rotation_epoch = frame_started
+                elapsed_from_epoch = max(0.0, frame_finished - rotation_epoch)
+                steps = (
+                    int(math.floor(elapsed_from_epoch / effective_interval_s)) + 1
+                )
+                next_deadline = rotation_epoch + steps * effective_interval_s
     except KeyboardInterrupt:
         output_fn("Rotation stopped by user.")
 

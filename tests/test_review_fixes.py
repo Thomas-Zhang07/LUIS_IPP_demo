@@ -58,3 +58,65 @@ def test_headless_prompt_fails_cleanly(script, args):
     assert result.returncode == 2
     assert "Interactive input is unavailable" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+class _JitterClock:
+    """Clock whose sleeps always overshoot by a fixed amount."""
+
+    def __init__(self, jitter=0.1):
+        self.now = 0.0
+        self.jitter = jitter
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += max(0.0, seconds) + self.jitter
+
+
+class _RecordingConnection:
+    def __init__(self, clock, starts):
+        self.clock = clock
+        self.starts = starts
+        self.dtr = None
+        self.rts = None
+
+    def write(self, data):
+        self.starts.append(self.clock.now)
+        return len(data)
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+
+def test_rotation_deadlines_do_not_accumulate_jitter():
+    import trajectory
+
+    clock = _JitterClock()
+    starts = []
+
+    def factory(*args, **kwargs):
+        return _RecordingConnection(clock, starts)
+
+    summary = trajectory.run_rotation(
+        30.0,
+        mode="two",
+        rotation_period_s=10.0,
+        port="COM9",
+        max_updates=4,
+        serial_factory=factory,
+        clock=clock,
+        sleep=clock.sleep,
+        output_fn=lambda *_: None,
+    )
+
+    assert summary["frames_sent"] == 4
+    deltas = [later - earlier for earlier, later in zip(starts, starts[1:])]
+    # The first interval includes the settle overshoot; later intervals stay
+    # on the 5 s epoch grid instead of growing by the 0.1 s jitter each time.
+    assert deltas[0] == pytest.approx(5.1, abs=0.06)
+    assert deltas[1] == pytest.approx(5.0, abs=0.06)
+    assert deltas[2] == pytest.approx(5.0, abs=0.06)

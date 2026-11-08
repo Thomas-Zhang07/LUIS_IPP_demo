@@ -40,6 +40,9 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Rotation scheduling now anchors each next-frame deadline to the rotation
+  epoch instead of the previous frame start, so scheduling jitter does not
+  accumulate over long runs.
 - Headless runs that need interactive input now exit with a clear message
   and status 2 instead of raising an unhandled `EOFError`.
 - ON/OFF scripts now accept rates from 0.1 Hz (previously the 20 Hz floor
