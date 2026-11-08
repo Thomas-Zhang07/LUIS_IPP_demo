@@ -1,5 +1,6 @@
 """Regression tests for issues found in the post-cleanup review."""
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -267,3 +268,16 @@ def test_cli_rotation_rejects_beta_180():
     )
     assert result.returncode == 2
     assert "beta=0 or beta=180" in result.stderr
+
+
+def test_readme_tables_have_consistent_column_counts():
+    lines = (ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+    expected = None
+    for line in lines:
+        if line.startswith("|"):
+            columns = len(re.findall(r"(?<!\\)\|", line))
+            if expected is None:
+                expected = columns
+            assert columns == expected, f"ragged table row: {line}"
+        else:
+            expected = None

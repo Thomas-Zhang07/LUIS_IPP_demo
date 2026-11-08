@@ -109,7 +109,7 @@ carrier. `transducer_onoff_steer.py` also sends an OFF frame before exiting.
 |--------|----------|-------|
 | `transducer_phase_steer.py` | Static steering with one angle in the x–z plane: 0° = +x, 90° = +z (array normal), 180° = −x. | `--angle`, `--frequency`, `--sound-speed`, `--dry-run` |
 | `transducer_onoff_steer.py` | Toggles an angle-steered ON frame against an all-off frame. | `--angle`, `--frequency` (toggle), `--carrier-frequency`, `--sound-speed`, `--duration`, `--dry-run` |
-| `transducer_phase_steer_2d.py` | Static 2D steering, rotation through two or four azimuths, and optional plots. | `--alpha`, `--beta`, `--angle`/`--legacy-angle`, `--rotate`, `--mode two|four`, `--rotation-period`, `--update-interval`, `--duration`, `--plot-array-factor`, `--plot-phase-rotation`, `--dry-run` |
+| `transducer_phase_steer_2d.py` | Static 2D steering, rotation through two or four azimuths, and optional plots. | `--alpha`, `--beta`, `--angle`/`--legacy-angle`, `--rotate`, `--mode {two,four}`, `--rotation-period`, `--update-interval`, `--duration`, `--plot-array-factor`, `--plot-phase-rotation`, `--dry-run` |
 
 Steering conventions:
 

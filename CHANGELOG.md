@@ -28,6 +28,8 @@ semantic versioning once releases are tagged.
 
 ### Changed
 
+- Fixed the `--mode two|four` cell that broke the README table layout, and
+  added a test that guards table column consistency.
 - Documented the pre-existing focus/steering phase-sign conflict and the
   array-centered vortex behavior in `acoustics.py` and the README, and
   corrected the transmit-order direction in the `protocol.build_frame`
