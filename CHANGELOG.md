@@ -11,11 +11,16 @@ semantic versioning once releases are tagged.
 - Shared `protocol.py`: validated frame builders, uniform ON/OFF frames,
   wire-time calculations, a consistent serial context manager, and
   partial-write-checked sends.
+- `serial_utils.resolve_serial_port()`: dry-run-aware port resolution that
+  never prompts when no port is needed.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
 - `docs/cleanup-progress.md` to track the repository cleanup.
 
 ### Changed
+
+- Port discovery and selection now live in one implementation in
+  `serial_utils.py`, with injectable input/output functions.
 
 ### Fixed
 
