@@ -5,12 +5,11 @@ Working rule: one logical change per commit; each commit must pass
 commit that closes an item and is deleted when the cleanup is complete.
 
 > Baseline exception: `python -m compileall` is red at commit 1 because of the
-> pre-existing `onoff.py` encoding failure (D1). It turns green at commit 2.
-
+> pre-existing `onoff.py` encoding failure (D1). It turned green at commit 2.
 ## Commit sequence
 
 - [x] 1. `chore: bootstrap test tooling, changelog and tracker`
-- [ ] 2. `fix(encoding): convert GBK sources to UTF-8 and repair onoff.py`
+- [x] 2. `fix(encoding): convert GBK sources to UTF-8 and repair onoff.py`
 - [ ] 3. `feat(protocol): shared frame builders and serial transport`
 - [ ] 4. `refactor(serial-utils): unify port selection`
 - [ ] 5. `refactor(all-on): use shared protocol layer`
@@ -27,13 +26,13 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [ ] 16. `refactor(mode-control): main guard, --port/--dry-run`
 - [ ] 17. `docs: rewrite README from actual behavior`
 - [ ] 18. `chore: final verification, changelog and tracker cleanup`
-- [ ] 19. Independent code-review agent pass; address findings
+- [ ] 19. AGY reviewer (`consult_agy`) + independent code-review agent pass; address findings
 
 ## Defects
 
 - [x] D14 — no `requirements.txt`, no tests (commit 1)
-- [ ] D1 — `onoff.py` GBK without coding declaration → SyntaxError
-- [ ] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`)
+- [x] D1 — `onoff.py` GBK without coding declaration → SyntaxError (commit 2)
+- [x] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`) (commit 2)
 - [ ] D3 — README contains 8 U+FFFD characters
 - [ ] D4 — `--dry-run` prompts for / requires a port (hover, vortex)
 - [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)

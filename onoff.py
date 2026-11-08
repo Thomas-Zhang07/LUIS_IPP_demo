@@ -6,7 +6,7 @@ serial-port selection flow as the project examples, including:
 
 Scanning serial ports...
 Available serial ports:
-[0] COM8 (蓝牙链接上的标准串行 (COM8))
+[0] COM8 (钃濈墮閾炬帴涓婄殑鏍囧噯涓茶 (COM8))
 ...
 Select port number:
 """

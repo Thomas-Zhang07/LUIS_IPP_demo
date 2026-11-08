@@ -1,4 +1,3 @@
-# -*- coding: gbk -*-
 """
 Single-Point Acoustic Focus Demo
 =================================
@@ -73,7 +72,7 @@ def compute_phases_for_focus(target_pos, emitters_pos=EMITTERS_POS):
 
 
 def discretize_phases_to_bins(phases, num_bins=PHASE_BINS):
-    """Map continuous phases [0, 2¦Ð) to discrete bins 0..num_bins-1.
+    """Map continuous phases [0, 2Ï€) to discrete bins 0..num_bins-1.
 
     Args:
         phases: (N,) array of continuous phase values (radians).

@@ -1,4 +1,3 @@
-# -*- coding: gbk -*-
 """
 Single-Point Acoustic Vortex Demo
 =================================
@@ -231,12 +230,12 @@ def main():
         ).strip().lower()
         if not direction:
             topological_charge = args.charge
-        elif direction in ("ccw", "counter-clockwise", "counterclockwise", "ÄæÊ±Õë"):
+        elif direction in ("ccw", "counter-clockwise", "counterclockwise", "é€†æ—¶é’ˆ"):
             topological_charge = abs(args.charge) or 1
-        elif direction in ("cw", "clockwise", "Ë³Ê±Õë"):
+        elif direction in ("cw", "clockwise", "é¡ºæ—¶é’ˆ"):
             topological_charge = -(abs(args.charge) or 1)
         else:
-            print("Invalid direction: use ccw/cw (ÄæÊ±Õë/Ë³Ê±Õë).")
+            print("Invalid direction: use ccw/cw (é€†æ—¶é’ˆ/é¡ºæ—¶é’ˆ).")
             return
 
     send_vortex_frame_to_port(

@@ -15,3 +15,8 @@ semantic versioning once releases are tagged.
 ### Changed
 
 ### Fixed
+
+- Converted `onoff.py`, `single_point_hover.py`, and
+  `single_point_vortex.py` from GBK to UTF-8. `onoff.py` previously raised
+  `SyntaxError` on Python 3 and now runs; Chinese comments and messages are
+  preserved (D1, D2).
