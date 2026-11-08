@@ -196,4 +196,6 @@ mode_control.py                mode command + all-off frame
 tests/                         hardware-free pytest suite
 ```
 
-See `CHANGELOG.md` for changes.
+See `CHANGELOG.md` for changes. See `docs/demos.md` for design notes on the
+three demo experiences (levitation, directional speaker, sandbox/touch), the
+planned two-PCB architecture, and what each demo still needs.

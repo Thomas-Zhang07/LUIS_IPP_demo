@@ -27,6 +27,8 @@ semantic versioning once releases are tagged.
 - Hardware-free pytest suite (138 tests) covering the frame protocol,
   transmit order, acoustics and quantization, streaming deadlines, dry-run
   safety, mode control, README consistency, and CLI flag preservation.
+- `docs/demos.md`: design notes for the three demo experiences, the planned
+  two-PCB architecture, and the hardware-dependent open questions.
 
 ### Changed
 
