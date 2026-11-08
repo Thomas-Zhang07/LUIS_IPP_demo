@@ -21,7 +21,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
 - [x] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
 - [x] 13. `feat(array-factor): extract analysis module; remove dead beta code`
-- [ ] 14. `refactor(phase-steer): shared acoustics; carrier flags`
+- [x] 14. `refactor(phase-steer): shared acoustics; carrier flags`
 - [ ] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
 - [ ] 16. `refactor(mode-control): main guard, --port/--dry-run`
 - [ ] 17. `docs: rewrite README from actual behavior`

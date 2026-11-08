@@ -60,6 +60,8 @@ semantic versioning once releases are tagged.
 - Removed 168 lines of unreachable beta-optimization code
   (`rank_beta_candidates`, `optimize_beta`, `plot_beta_optimization`) from
   `transducer_phase_steer_2d.py` (D9).
+- `transducer_phase_steer.py` now uses the shared acoustics, protocol and
+  serial modules, and adds `--frequency`/`--sound-speed`.
 
 ### Fixed
 
