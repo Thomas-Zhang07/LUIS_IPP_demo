@@ -14,7 +14,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 4. `refactor(serial-utils): unify port selection`
 - [x] 5. `refactor(all-on): use shared protocol layer`
 - [x] 6. `feat(acoustics): shared physics and quantization`
-- [ ] 7. `fix(focus): shared physics; dry-run never prompts for a port`
+- [x] 7. `fix(focus): shared physics; dry-run never prompts for a port`
 - [ ] 8. `feat(trajectory): deadline-based streaming and generators`
 - [ ] 9. `refactor(line-circle): adopt shared trajectory runner`
 - [ ] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
@@ -34,14 +34,14 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D1 — `onoff.py` GBK without coding declaration → SyntaxError (commit 2)
 - [x] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`) (commit 2)
 - [ ] D3 — README contains 8 U+FFFD characters
-- [ ] D4 — `--dry-run` prompts for / requires a port (hover, vortex)
+- [x] D4 — `--dry-run` prompts for / requires a port (hover, vortex) (commit 7)
 - [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)
 - [x] D6 — wavelength inconsistency (commit 6)
 - [ ] D7 — circle default 2.0 s vs docs 5 s
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
 - [ ] D9 — dead beta-optimization code (168 lines)
 - [ ] D10 — duplicated port selection / serial config / frame builders / focus math
-- [ ] D11 — `assert` used for validation
+- [x] D11 — `assert` used for validation (commit 7)
 - [ ] D12 — drifting `sleep(interval)` in line trajectory
 - [ ] D13 — `mode_control.py` runs on import, hardcoded COM9
 - [ ] D15 — README omits scripts and has stale samples
