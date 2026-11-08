@@ -8,6 +8,7 @@ beam direction must be independently verified.
 """
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -178,9 +179,11 @@ def main(argv: list[str] | None = None) -> None:
             validate_steering_angles(0.0, beta_degrees)
         except ValueError as error:
             parser.error(str(error))
-        if beta_degrees == 0.0:
+        if math.isclose(beta_degrees, 0.0, abs_tol=1e-12) or math.isclose(
+            beta_degrees, 180.0, abs_tol=1e-12
+        ):
             parser.error(
-                "Rotating azimuth is undefined at beta=0; choose beta > 0 degrees."
+                "Rotating azimuth is undefined at beta=0 or beta=180 degrees."
             )
 
         if args.plot_phase_rotation:

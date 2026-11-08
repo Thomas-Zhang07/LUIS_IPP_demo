@@ -235,3 +235,35 @@ def test_invalid_rotation_timing_fails_cleanly():
     assert result.returncode == 2
     assert "Rotation period" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_rotation_rejects_both_poles():
+    for beta in (0.0, 180.0):
+        with pytest.raises(ValueError):
+            trajectory.run_rotation(beta, dry_run=True)
+
+
+def test_cli_rotation_rejects_beta_180():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "transducer_phase_steer_2d.py",
+            "--dry-run",
+            "--rotate",
+            "--beta",
+            "180",
+            "--mode",
+            "two",
+            "--rotation-period",
+            "0.2",
+            "--duration",
+            "0.1",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert "beta=0 or beta=180" in result.stderr

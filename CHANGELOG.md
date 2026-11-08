@@ -45,6 +45,9 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Rotation now rejects `beta=0` and `beta=180`; azimuth is undefined at both
+  poles, and `beta=180` previously emitted identical frames while claiming to
+  rotate.
 - Invalid `--frequency` values and invalid rotation timing now produce a
   standard argparse error and exit status 2 instead of a traceback.
 - Timed runs now clamp waits to the remaining `--duration`, so a short run

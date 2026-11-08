@@ -669,8 +669,12 @@ def run_rotation(
     """
     acoustics.validate_steering_angles(0.0, beta_deg)
     rotation_angles = get_rotation_angles(mode)
-    if beta_deg == 0.0:
-        raise ValueError("Beta must be greater than 0 degrees for azimuth rotation.")
+    if math.isclose(beta_deg, 0.0, abs_tol=1e-12) or math.isclose(
+        beta_deg, 180.0, abs_tol=1e-12
+    ):
+        raise ValueError(
+            "Azimuth rotation is undefined at beta=0 or beta=180 degrees."
+        )
     if not math.isfinite(rotation_period_s) or rotation_period_s <= 0.0:
         raise ValueError("Rotation period must be finite and greater than 0 seconds.")
     if not math.isfinite(update_interval_s) or update_interval_s <= 0.0:
