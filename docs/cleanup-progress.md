@@ -24,7 +24,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 14. `refactor(phase-steer): shared acoustics; carrier flags`
 - [x] 15. `refactor(phase-steer-2d): thin CLI over shared modules`
 - [x] 16. `refactor(mode-control): main guard, --port/--dry-run`
-- [ ] 17. `docs: rewrite README from actual behavior`
+- [x] 17. `docs: rewrite README from actual behavior`
 - [ ] 18. `chore: final verification, changelog and tracker cleanup`
 - [ ] 19. AGY reviewer (`consult_agy`) + independent code-review agent pass; address findings
 
@@ -33,18 +33,18 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D14 — no `requirements.txt`, no tests (commit 1)
 - [x] D1 — `onoff.py` GBK without coding declaration → SyntaxError (commit 2)
 - [x] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`) (commit 2)
-- [ ] D3 — README contains 8 U+FFFD characters
+- [x] D3 — README contains 8 U+FFFD characters (commit 17)
 - [x] D4 — `--dry-run` prompts for / requires a port (hover, vortex) (commit 7)
 - [x] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff) (commit 10)
 - [x] D6 — wavelength inconsistency (commit 6)
 - [x] D7 — circle default 2.0 s vs docs 5 s (commit 9)
-- [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
+- [x] D8 — README wrong about radius and Ctrl+C all-off behavior (commit 17)
 - [x] D9 — dead beta-optimization code (168 lines) (commit 13)
 - [x] D10 — duplicated port selection / serial config / frame builders / focus math (commits 3–16)
 - [x] D11 — `assert` used for validation (commit 7)
 - [x] D12 — drifting `sleep(interval)` in line trajectory (commit 9)
 - [x] D13 — `mode_control.py` runs on import, hardcoded COM9 (commit 16)
-- [ ] D15 — README omits scripts and has stale samples
+- [x] D15 — README omits scripts and has stale samples (commit 17)
 
 ## Verification checkpoints
 

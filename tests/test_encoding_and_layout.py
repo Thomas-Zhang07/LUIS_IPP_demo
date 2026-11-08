@@ -54,3 +54,20 @@ def test_emitters_first_group_is_unchanged():
     assert emitters.EMITTERS_ORDER[:8] == [0, 32, 48, 17, 1, 49, 33, 16]
     assert len(emitters.EMITTERS_ORDER) == 256
     assert sorted(emitters.EMITTERS_ORDER) == list(range(256))
+
+
+def test_readme_has_no_replacement_characters():
+    readme = _read(ROOT / "README.md")
+    assert "�" not in readme
+
+
+def test_readme_mentions_every_script():
+    readme = _read(ROOT / "README.md")
+    for path in PY_SOURCES:
+        assert path.name in readme, f"{path.name} missing from README.md"
+
+
+def test_readme_states_circle_facts_correctly():
+    readme = _read(ROOT / "README.md")
+    assert "1.5 cm radius" in readme
+    assert "default 2 s" in readme

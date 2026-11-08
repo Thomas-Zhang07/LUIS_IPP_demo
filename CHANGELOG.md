@@ -70,10 +70,11 @@ semantic versioning once releases are tagged.
   `--dry-run` and `--list-ports` instead of executing on import with a
   hardcoded `COM9` (D13). The mode command byte and all-off frame are
   unchanged and documented.
-
-### Fixed
-
 - Converted `onoff.py`, `single_point_hover.py`, and
   `single_point_vortex.py` from GBK to UTF-8. `onoff.py` previously raised
   `SyntaxError` on Python 3 and now runs; Chinese comments and messages are
   preserved (D1, D2).
+- Rewrote `README.md` from actual behavior: repaired the corrupted
+  characters, corrected the circle to a 1.5 cm radius / 3 cm diameter and a
+  2 s default, corrected the Ctrl+C all-off claim, and documented every
+  script, flag, protocol constraint and physics default (D3, D8, D15).
