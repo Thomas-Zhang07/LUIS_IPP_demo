@@ -10,6 +10,7 @@ import pytest
 import onoff
 import transducer_onoff_demo
 import transducer_onoff_steer
+import trajectory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -132,3 +133,65 @@ def test_vortex_uses_array_center_for_off_center_targets():
     radii, angles = acoustics.polar_coordinates(center=result.center)
     np.testing.assert_allclose(result.radii, radii)
     np.testing.assert_allclose(result.angles, angles)
+
+
+def test_stream_duration_does_not_oversleep(fake_clock, fake_serial_factory):
+    connection = fake_serial_factory()
+    sent = trajectory.stream_timed_frames(
+        lambda index: b"frame",
+        interval_s=10.0,
+        connection=connection,
+        duration_s=0.1,
+        max_frames=2,
+        clock=fake_clock,
+        sleep=fake_clock.sleep,
+    )
+    assert sent == 1
+    assert fake_clock.now == pytest.approx(0.1, abs=1e-6)
+
+
+def test_toggle_duration_does_not_oversleep(fake_serial_factory, fake_clock):
+    sent = trajectory.run_toggle(
+        port="COM9",
+        on_frame=b"ON",
+        off_frame=b"OFF",
+        frequency_hz=0.1,
+        duration_s=0.1,
+        serial_factory=fake_serial_factory,
+        clock=fake_clock,
+        sleep=fake_clock.sleep,
+        output_fn=lambda *_: None,
+    )
+    assert sent == 1
+    assert fake_clock.now == pytest.approx(0.4, abs=1e-6)  # 0.3 settle + 0.1
+
+
+def test_bit_pattern_duration_does_not_oversleep(fake_serial_factory, fake_clock):
+    sent = trajectory.run_bit_pattern(
+        port="COM9",
+        pattern=[1],
+        bit_seconds=10.0,
+        duration_s=0.1,
+        serial_factory=fake_serial_factory,
+        clock=fake_clock,
+        sleep=fake_clock.sleep,
+        output_fn=lambda *_: None,
+    )
+    assert sent == 1
+    assert fake_clock.now == pytest.approx(0.4, abs=1e-6)  # 0.3 settle + 0.1
+
+
+def test_rotation_duration_does_not_oversleep(fake_serial_factory, fake_clock):
+    summary = trajectory.run_rotation(
+        30.0,
+        mode="two",
+        rotation_period_s=10.0,
+        port="COM9",
+        duration_s=0.1,
+        serial_factory=fake_serial_factory,
+        clock=fake_clock,
+        sleep=fake_clock.sleep,
+        output_fn=lambda *_: None,
+    )
+    assert summary["frames_sent"] == 1
+    assert fake_clock.now == pytest.approx(0.4, abs=1e-6)  # 0.3 settle + 0.1

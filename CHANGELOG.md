@@ -45,6 +45,8 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Timed runs now clamp waits to the remaining `--duration`, so a short run
+  no longer sleeps for a full interval (or several seconds) before stopping.
 - Rotation scheduling now anchors each next-frame deadline to the rotation
   epoch instead of the previous frame start, so scheduling jitter does not
   accumulate over long runs.

@@ -54,6 +54,14 @@ def _validate_positive(value, label: str) -> float:
     return number
 
 
+def _wait_for_deadline(deadline, *, clock, sleep, duration_deadline=None) -> None:
+    """Sleep until deadline, but never past the run's duration deadline."""
+    target = deadline if duration_deadline is None else min(deadline, duration_deadline)
+    wait_s = target - clock()
+    if wait_s > 0:
+        sleep(wait_s)
+
+
 def generate_circle_points(
     center,
     *,
@@ -156,9 +164,14 @@ def stream_timed_frames(
 
             if frames_sent:
                 deadline = started + frames_sent * interval_s
-                wait_s = deadline - clock()
-                if wait_s > 0:
-                    sleep(wait_s)
+                _wait_for_deadline(
+                    deadline,
+                    clock=clock,
+                    sleep=sleep,
+                    duration_deadline=(
+                        started + duration_s if duration_s is not None else None
+                    ),
+                )
                 if stop_event.is_set():
                     break
                 if duration_s is not None and clock() - started >= duration_s:
@@ -418,9 +431,16 @@ def run_toggle(
 
                     if frames_sent:
                         deadline = started + frames_sent * half_period
-                        wait_s = deadline - clock()
-                        if wait_s > 0:
-                            sleep(wait_s)
+                        _wait_for_deadline(
+                            deadline,
+                            clock=clock,
+                            sleep=sleep,
+                            duration_deadline=(
+                                started + duration_s
+                                if duration_s is not None
+                                else None
+                            ),
+                        )
                         if stop_event.is_set():
                             break
                         if (
@@ -522,9 +542,16 @@ def run_bit_pattern(
 
                     if frames_sent:
                         deadline = started + frames_sent * bit_seconds
-                        wait_s = deadline - clock()
-                        if wait_s > 0:
-                            sleep(wait_s)
+                        _wait_for_deadline(
+                            deadline,
+                            clock=clock,
+                            sleep=sleep,
+                            duration_deadline=(
+                                started + duration_s
+                                if duration_s is not None
+                                else None
+                            ),
+                        )
                         if stop_event.is_set():
                             break
                         if (
@@ -705,9 +732,16 @@ def run_rotation(
                     if duration_s is not None and rotation_epoch is not None:
                         if now - rotation_epoch >= duration_s:
                             break
-                    wait_s = max(0.0, next_deadline - now)
-                    if wait_s:
-                        sleep(wait_s)
+                    _wait_for_deadline(
+                        next_deadline,
+                        clock=clock,
+                        sleep=sleep,
+                        duration_deadline=(
+                            rotation_epoch + duration_s
+                            if duration_s is not None and rotation_epoch is not None
+                            else None
+                        ),
+                    )
                     if stop_event.is_set():
                         break
 

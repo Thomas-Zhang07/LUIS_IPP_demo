@@ -52,8 +52,10 @@ commit that closes an item and is deleted when the cleanup is complete.
       (README U+FFFD remains until commit 17)
 - [x] Phase 2 (commits 7–12): hardware-free dry-runs for all streaming scripts
       (11/11 exit 0)
-- [ ] Phase 3 (commits 13–18): full test suite + dry-run matrix
+- [x] Phase 3 (commits 13–18): full test suite + dry-run matrix
+      (128 tests green; 14/14 dry-runs exit 0)
 - [ ] Post-cleanup: independent code-review agent pass, findings triaged/fixed
+      (AGY complete; code-review agent still running)
 
 ## Review follow-ups (AGY + code-review)
 
@@ -62,4 +64,9 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] R3 — headless runs crash on `EOFError` instead of a clean message
 - [x] R4 — rotation deadlines anchored per-frame rather than to the epoch
 - [x] R5 — document focus/steering phase-sign and vortex-center caveats
-- [ ] R6 — triage the code-review skill findings
+- [x] R6a — timed waits slept past `--duration`
+- [ ] R6b — uncaught `ValueError` for invalid frequency / rotation timing
+- [ ] R6c — rotation accepted `beta=180`, which produces no rotation
+- [ ] R6d — README table pipe breaks Markdown rendering
+- [ ] R6e — note remaining follow-ups (duplicated frequency parsing;
+      `evaluate_peak_sidelobe` is a library API with no CLI caller)
