@@ -3,10 +3,17 @@
 All coordinates are meters. The array lies in the z=0 plane with its origin
 at the bottom-left emitter (see :mod:`emitters`).
 
-Propagation convention: phases are computed as ``-k * r`` and wrapped to
-``[0, 2*pi)``, which assumes ``exp(i*(omega*t - k*r))``. The firmware's
-phase-bin mapping and physical beam direction still require hardware
-verification.
+Propagation convention: phases are computed and wrapped to ``[0, 2*pi)``
+assuming ``exp(i*(omega*t - k*r))``, where ``k = 2*pi*f/c``.
+
+Sign caveat: under this convention a converging focus requires ``+k*d``
+while plane-wave steering requires ``-k*(r . u)``. This module preserves the
+legacy formulas (focus ``-k*d``, steering ``-k*(r . u)``). With a single
+firmware bin-to-phase sign they cannot both be correct, so verify focusing
+and steering separately against hardware before relying on absolute direction.
+
+Vortex caveat: the helical phase is measured around the mean array center,
+not the target's transverse position; see :func:`vortex_phases`.
 """
 
 from __future__ import annotations
@@ -176,7 +183,13 @@ def vortex_phases(
     sound_speed=DEFAULT_SOUND_SPEED_MPS,
     emitters_pos=EMITTERS_POS,
 ) -> VortexPhases:
-    """Return focus phase plus ``charge * polar_angle`` for every emitter."""
+    """Return focus phase plus ``charge * polar_angle`` for every emitter.
+
+    The polar angle is measured around the mean array center, not around the
+    target's transverse position. This preserves the legacy vortex definition;
+    an off-axis target therefore spirals about the array axis rather than the
+    beam axis.
+    """
     if isinstance(topological_charge, bool) or not isinstance(
         topological_charge, (int, np.integer)
     ):

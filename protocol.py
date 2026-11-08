@@ -54,7 +54,8 @@ def build_frame(
 
     Args:
         phase_values: 256 integer values in logical emitter order.
-        transmit_order: permutation mapping logical index -> wire position.
+        transmit_order: permutation mapping wire position -> logical index
+            (EMITTERS_ORDER[k] is the logical emitter sent at position k).
         allow_off: when False, only phase bins 0..15 are accepted.
 
     Returns:

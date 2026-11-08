@@ -124,6 +124,15 @@ Steering conventions:
 
 ## Notes and limitations
 
+- **Phase sign (hardware-verify):** focusing computes `−k·d` while plane-wave
+  steering computes `−k·(r·u)`. Under the documented `exp(i(ωt − k·r))`
+  convention, a converging focus requires `+k·d`, so the legacy focus sign is
+  inverted relative to steering. Both formulas are preserved, but they cannot
+  both be correct for one firmware bin-to-phase sign. Verify focus and
+  steering separately on hardware.
+- **Vortex center:** the vortex phase is computed around the mean array
+  center, not the target's transverse position, so an off-axis vortex spirals
+  about the array axis. This preserves legacy behavior.
 - **No all-off frame on interrupt** for most scripts: line, circle, hover,
   vortex, onoff, bit pattern and the demo scripts leave the board in its last
   state. `transducer_onoff_steer.py` is the exception and sends OFF on exit.

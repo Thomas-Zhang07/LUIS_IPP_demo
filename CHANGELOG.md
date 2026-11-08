@@ -28,6 +28,11 @@ semantic versioning once releases are tagged.
 
 ### Changed
 
+- Documented the pre-existing focus/steering phase-sign conflict and the
+  array-centered vortex behavior in `acoustics.py` and the README, and
+  corrected the transmit-order direction in the `protocol.build_frame`
+  docstring. These are hardware-dependent behaviors preserved from the
+  original scripts, not silently changed.
 - Port discovery and selection now live in one implementation in
   `serial_utils.py`, with injectable input/output functions.
 - `transducer_all_on.py` now uses the shared protocol and serial modules;

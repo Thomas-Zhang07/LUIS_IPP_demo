@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import onoff
@@ -120,3 +121,14 @@ def test_rotation_deadlines_do_not_accumulate_jitter():
     assert deltas[0] == pytest.approx(5.1, abs=0.06)
     assert deltas[1] == pytest.approx(5.0, abs=0.06)
     assert deltas[2] == pytest.approx(5.0, abs=0.06)
+
+
+def test_vortex_uses_array_center_for_off_center_targets():
+    import acoustics
+
+    result = acoustics.vortex_phases((0.05, 0.05, 0.05), 1)
+    np.testing.assert_allclose(result.center, acoustics.array_center())
+
+    radii, angles = acoustics.polar_coordinates(center=result.center)
+    np.testing.assert_allclose(result.radii, radii)
+    np.testing.assert_allclose(result.angles, angles)
