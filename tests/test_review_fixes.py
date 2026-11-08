@@ -35,3 +35,26 @@ def test_onoff_dry_run_accepts_two_hz():
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "script,args",
+    [
+        ("single_point_hover.py", ["--dry-run"]),
+        ("single_point_vortex.py", ["--dry-run"]),
+        ("transducer_phase_steer.py", ["--dry-run"]),
+        ("transducer_phase_steer_2d.py", ["--dry-run"]),
+    ],
+)
+def test_headless_prompt_fails_cleanly(script, args):
+    result = subprocess.run(
+        [sys.executable, script, *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert "Interactive input is unavailable" in result.stderr
+    assert "Traceback" not in result.stderr

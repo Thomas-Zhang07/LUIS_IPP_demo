@@ -28,6 +28,7 @@ from protocol import (  # noqa: E402
     send_frame,
 )
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
+from cli_utils import run_cli  # noqa: E402
 
 ON_PHASE = 0
 
@@ -85,4 +86,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

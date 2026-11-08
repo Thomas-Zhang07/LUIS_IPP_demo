@@ -30,7 +30,7 @@ from array_factor import (  # noqa: E402
     plot_rotation_phase_samples,
     print_physical_phase_map,
 )
-from cli_utils import add_acoustic_args  # noqa: E402
+from cli_utils import add_acoustic_args, run_cli  # noqa: E402
 from protocol import BAUD_RATE, build_frame, write_frame_to_port  # noqa: E402
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
 from trajectory import calculate_rotation_timing, run_rotation  # noqa: E402
@@ -328,4 +328,4 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

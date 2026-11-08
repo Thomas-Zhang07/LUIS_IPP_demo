@@ -37,6 +37,7 @@ from cli_utils import (  # noqa: E402
     print_frame,
     print_phase_top_view,
     read_target_triplet,
+    run_cli,
 )
 from emitters import EMITTERS_ORDER  # noqa: E402
 from protocol import (  # noqa: E402
@@ -213,4 +214,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

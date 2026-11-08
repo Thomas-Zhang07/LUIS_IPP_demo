@@ -40,6 +40,8 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Headless runs that need interactive input now exit with a clear message
+  and status 2 instead of raising an unhandled `EOFError`.
 - ON/OFF scripts now accept rates from 0.1 Hz (previously the 20 Hz floor
   rejected every rate the UART can actually achieve); they still warn above
   the ~7.44 Hz full-frame limit.

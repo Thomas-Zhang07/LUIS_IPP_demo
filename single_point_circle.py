@@ -21,6 +21,7 @@ from cli_utils import (  # noqa: E402
     add_port_arg,
     add_target_args,
     read_target_triplet,
+    run_cli,
 )
 from serial_utils import print_available_ports, resolve_serial_port  # noqa: E402
 from trajectory import (  # noqa: E402
@@ -112,4 +113,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

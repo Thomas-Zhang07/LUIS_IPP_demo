@@ -18,7 +18,7 @@ if str(DEMO_DIR) not in sys.path:
     sys.path.insert(0, str(DEMO_DIR))
 
 from acoustics import line_steering_phase_bins, validate_acoustic_params  # noqa: E402
-from cli_utils import add_acoustic_args, print_phase_top_view  # noqa: E402
+from cli_utils import add_acoustic_args, print_phase_top_view, run_cli  # noqa: E402
 from protocol import BAUD_RATE, build_frame, write_frame_to_port  # noqa: E402
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
 
@@ -134,4 +134,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

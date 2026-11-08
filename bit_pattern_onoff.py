@@ -22,6 +22,7 @@ if str(DEMO_DIR) not in sys.path:
     sys.path.insert(0, str(DEMO_DIR))
 
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
+from cli_utils import run_cli  # noqa: E402
 from trajectory import run_bit_pattern  # noqa: E402
 
 
@@ -170,4 +171,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

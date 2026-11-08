@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import acoustics
 import protocol
 from emitters import N_SIDE
@@ -102,3 +104,16 @@ def print_frame(frame: bytes, *, output=print) -> None:
     """Print a frame in hex and its size."""
     output(f"\nUART Frame (hex): {frame.hex(' ')}")
     output(f"Frame size: {len(frame)} bytes (header + 256 body + footer)")
+
+
+def run_cli(main) -> None:
+    """Run a CLI entry point, turning closed stdin into a clean error."""
+    try:
+        main()
+    except EOFError:
+        print(
+            "Interactive input is unavailable; pass the required "
+            "command-line flags.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)

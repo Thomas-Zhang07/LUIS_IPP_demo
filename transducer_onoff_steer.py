@@ -26,7 +26,7 @@ from acoustics import (  # noqa: E402
     line_steering_phase_bins,
     validate_acoustic_params,
 )
-from cli_utils import add_acoustic_args, print_phase_top_view  # noqa: E402
+from cli_utils import add_acoustic_args, print_phase_top_view, run_cli  # noqa: E402
 from protocol import (  # noqa: E402
     BAUD_RATE,
     build_frame,
@@ -235,4 +235,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

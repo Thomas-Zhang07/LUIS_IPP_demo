@@ -17,6 +17,7 @@ if str(DEMO_DIR) not in sys.path:
 
 from protocol import BAUD_RATE, build_off_frame, build_on_frame  # noqa: E402
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
+from cli_utils import run_cli  # noqa: E402
 from trajectory import run_toggle  # noqa: E402
 
 MIN_FREQUENCY_HZ = 0.1
@@ -144,4 +145,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)
