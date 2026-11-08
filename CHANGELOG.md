@@ -28,6 +28,8 @@ semantic versioning once releases are tagged.
 
 ### Changed
 
+- Frequency parsing and prompting now live in `cli_utils.py` and are shared
+  by the three toggle scripts instead of being copy-pasted.
 - Fixed the `--mode two|four` cell that broke the README table layout, and
   added a test that guards table column consistency.
 - Documented the pre-existing focus/steering phase-sign conflict and the

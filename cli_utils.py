@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import math
 import sys
 
 import acoustics
 import protocol
 from emitters import N_SIDE
+
+MIN_FREQUENCY_HZ = 0.1
+MAX_FREQUENCY_HZ = 20000.0
 
 
 def add_port_arg(parser) -> None:
@@ -117,3 +121,41 @@ def run_cli(main) -> None:
             file=sys.stderr,
         )
         raise SystemExit(2)
+
+
+def parse_frequency(
+    raw,
+    *,
+    minimum: float = MIN_FREQUENCY_HZ,
+    maximum: float = MAX_FREQUENCY_HZ,
+) -> float:
+    """Parse and validate a frequency in Hz."""
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"Invalid frequency: {raw!r}") from error
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(
+            f"Frequency must be between {minimum:g} Hz and {maximum:g} Hz."
+        )
+    return value
+
+
+def prompt_for_frequency(
+    *,
+    minimum: float = MIN_FREQUENCY_HZ,
+    maximum: float = MAX_FREQUENCY_HZ,
+) -> float:
+    """Prompt until a valid frequency is entered."""
+    while True:
+        try:
+            return parse_frequency(
+                input(
+                    f"Enter target frequency in Hz "
+                    f"({minimum:g} to {maximum:g}): "
+                ).strip(),
+                minimum=minimum,
+                maximum=maximum,
+            )
+        except ValueError as error:
+            print(f"{error}. Please try again.")

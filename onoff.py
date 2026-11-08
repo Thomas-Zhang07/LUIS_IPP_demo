@@ -17,34 +17,12 @@ if str(DEMO_DIR) not in sys.path:
 
 from protocol import BAUD_RATE, build_off_frame, build_on_frame  # noqa: E402
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
-from cli_utils import run_cli  # noqa: E402
+from cli_utils import (
+    parse_frequency,
+    prompt_for_frequency,
+    run_cli,
+)  # noqa: E402
 from trajectory import run_toggle  # noqa: E402
-
-MIN_FREQUENCY_HZ = 0.1
-MAX_FREQUENCY_HZ = 20000.0
-
-
-def parse_frequency(raw: str) -> float:
-    """Parse and validate the requested toggle frequency in Hz."""
-    try:
-        frequency = float(raw)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"Invalid frequency: {raw!r}") from error
-    if not math.isfinite(frequency) or not (
-        MIN_FREQUENCY_HZ <= frequency <= MAX_FREQUENCY_HZ
-    ):
-        raise ValueError("Frequency must be between 0.1 Hz and 20000 Hz.")
-    return frequency
-
-
-def prompt_for_frequency() -> float:
-    while True:
-        try:
-            return parse_frequency(
-                input("Enter target frequency in Hz (0.1 to 20000): ").strip()
-            )
-        except ValueError as error:
-            print(f"{error}. Please try again.")
 
 
 def prompt_for_duration():

@@ -26,7 +26,13 @@ from acoustics import (  # noqa: E402
     line_steering_phase_bins,
     validate_acoustic_params,
 )
-from cli_utils import add_acoustic_args, print_phase_top_view, run_cli  # noqa: E402
+from cli_utils import (
+    add_acoustic_args,
+    parse_frequency,
+    print_phase_top_view,
+    prompt_for_frequency,
+    run_cli,
+)  # noqa: E402
 from protocol import (  # noqa: E402
     BAUD_RATE,
     build_frame,
@@ -35,9 +41,6 @@ from protocol import (  # noqa: E402
 )
 from serial_utils import print_available_ports, select_serial_port  # noqa: E402
 from trajectory import run_toggle  # noqa: E402
-
-MIN_FREQUENCY_HZ = 0.1
-MAX_FREQUENCY_HZ = 20000.0
 
 
 def parse_angle_input(raw_value: str) -> float:
@@ -63,28 +66,6 @@ def prompt_for_angle() -> float:
             return parse_angle_input(raw_angle)
         except ValueError as error:
             print(f"{error} Please try again.", flush=True)
-
-
-def parse_frequency(raw: str) -> float:
-    try:
-        frequency = float(raw)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"Invalid frequency: {raw!r}") from error
-    if not math.isfinite(frequency) or not (
-        MIN_FREQUENCY_HZ <= frequency <= MAX_FREQUENCY_HZ
-    ):
-        raise ValueError("Frequency must be between 0.1 Hz and 20000 Hz.")
-    return frequency
-
-
-def prompt_for_frequency() -> float:
-    while True:
-        try:
-            return parse_frequency(
-                input("Enter target frequency in Hz (0.1 to 20000): ").strip()
-            )
-        except ValueError as error:
-            print(f"{error} Please try again.")
 
 
 def prompt_for_duration():
