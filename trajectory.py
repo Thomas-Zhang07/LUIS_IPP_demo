@@ -6,6 +6,8 @@ send does not accumulate drift. Serial is opened once per run.
 
 from __future__ import annotations
 
+import contextlib
+import math
 import threading
 import time
 
@@ -20,6 +22,8 @@ DEFAULT_CIRCLE_RADIUS = 0.015
 DEFAULT_LINE_SPAN = 0.03
 DEFAULT_POINT_COUNT = 48
 DEFAULT_PERIOD_S = 2.0
+ROTATION_ANGLES_DEG = (0.0, 90.0, 180.0, 270.0)
+TWO_DIRECTION_ANGLES_DEG = (0.0, 180.0)
 
 
 def _validate_center(center) -> np.ndarray:
@@ -541,3 +545,258 @@ def run_bit_pattern(
         ) from error
 
     return frames_sent
+
+
+def get_rotation_angles(mode: str = "four") -> tuple[float, ...]:
+    """Return the fixed azimuth sequence for the selected rotation mode."""
+    if mode == "two":
+        return TWO_DIRECTION_ANGLES_DEG
+    if mode == "four":
+        return ROTATION_ANGLES_DEG
+    raise ValueError("Rotation mode must be 'two' or 'four'.")
+
+
+def alpha_at_elapsed_time(
+    elapsed_time_s: float,
+    rotation_period_s: float,
+    mode: str = "four",
+) -> float:
+    """Return the active fixed azimuth based on elapsed time and mode."""
+    if not math.isfinite(elapsed_time_s) or elapsed_time_s < 0.0:
+        raise ValueError("Elapsed time must be finite and nonnegative.")
+    if not math.isfinite(rotation_period_s) or rotation_period_s <= 0.0:
+        raise ValueError("Rotation period must be finite and greater than 0 seconds.")
+    rotation_angles = get_rotation_angles(mode)
+    sector_duration_s = rotation_period_s / len(rotation_angles)
+    sector_index = int((elapsed_time_s % rotation_period_s) / sector_duration_s)
+    return rotation_angles[min(sector_index, len(rotation_angles) - 1)]
+
+
+def calculate_rotation_timing(
+    rotation_period_s: float = 10.0,
+    update_interval_s: float = 0.10,
+    measured_send_time_s: float = 0.0,
+    baudrate: int = protocol.BAUD_RATE,
+    frame_bytes: int = protocol.FRAME_SIZE,
+    safety_margin_s: float = 0.005,
+    mode: str = "four",
+) -> dict[str, float]:
+    """Estimate safe per-angle dwell time and slow the cycle if needed."""
+    direction_count = len(get_rotation_angles(mode))
+    values = (
+        rotation_period_s,
+        update_interval_s,
+        measured_send_time_s,
+        safety_margin_s,
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("Timing values must be finite.")
+    if rotation_period_s <= 0.0 or update_interval_s <= 0.0:
+        raise ValueError("Rotation period and update interval must be greater than 0.")
+    if measured_send_time_s < 0.0 or safety_margin_s < 0.0:
+        raise ValueError("Measured send time and safety margin cannot be negative.")
+    if baudrate <= 0 or frame_bytes <= 0:
+        raise ValueError("Baud rate and frame size must be positive.")
+
+    wire_time_s = protocol.wire_time_s(frame_bytes, baudrate)
+    effective_update_interval_s = max(
+        update_interval_s,
+        rotation_period_s / direction_count,
+        wire_time_s + safety_margin_s,
+        measured_send_time_s + safety_margin_s,
+    )
+    effective_period_s = max(
+        rotation_period_s,
+        effective_update_interval_s * direction_count,
+    )
+    return {
+        "wire_time_s": wire_time_s,
+        "effective_update_interval_s": effective_update_interval_s,
+        "effective_rotation_period_s": effective_period_s,
+        "effective_angular_speed_deg_s": 360.0 / effective_period_s,
+    }
+
+
+def run_rotation(
+    beta_deg: float,
+    *,
+    rotation_period_s: float = 10.0,
+    update_interval_s: float = 0.10,
+    mode: str = "four",
+    port: str | None = None,
+    dry_run: bool = False,
+    stop_event=None,
+    duration_s: float | None = None,
+    max_updates: int | None = None,
+    frequency_hz: float = acoustics.DEFAULT_FREQUENCY_HZ,
+    sound_speed: float = acoustics.DEFAULT_SOUND_SPEED_MPS,
+    serial_factory=None,
+    clock=None,
+    sleep=None,
+    output_fn=print,
+) -> dict[str, float | int]:
+    """Cycle through fixed alpha states at fixed beta until stopped.
+
+    Serial is opened once and reused. Slow writes increase the safe dwell and
+    the full-cycle period.
+    """
+    acoustics.validate_steering_angles(0.0, beta_deg)
+    rotation_angles = get_rotation_angles(mode)
+    if beta_deg == 0.0:
+        raise ValueError("Beta must be greater than 0 degrees for azimuth rotation.")
+    if not math.isfinite(rotation_period_s) or rotation_period_s <= 0.0:
+        raise ValueError("Rotation period must be finite and greater than 0 seconds.")
+    if not math.isfinite(update_interval_s) or update_interval_s <= 0.0:
+        raise ValueError("Update interval must be finite and greater than 0 seconds.")
+    if duration_s is not None and (
+        not math.isfinite(duration_s) or duration_s <= 0.0
+    ):
+        raise ValueError("Duration must be finite and greater than 0 seconds.")
+    if max_updates is not None and max_updates < 1:
+        raise ValueError("max_updates must be at least 1.")
+    if not dry_run and not port:
+        raise ValueError("A serial port is required unless dry_run=True.")
+
+    acoustics.validate_acoustic_params(frequency_hz, sound_speed)
+
+    clock = time.monotonic if clock is None else clock
+    sleep = time.sleep if sleep is None else sleep
+    stop_event = threading.Event() if stop_event is None else stop_event
+    timing = calculate_rotation_timing(
+        rotation_period_s, update_interval_s, mode=mode
+    )
+    output_fn(
+        f"Rotation preview: beta={beta_deg:.2f} deg, "
+        f"requested period={rotation_period_s:.3f} s, "
+        f"angle dwell={timing['effective_update_interval_s']:.3f} s, "
+        f"effective period={timing['effective_rotation_period_s']:.3f} s, "
+        f"speed={timing['effective_angular_speed_deg_s']:.2f} deg/s, "
+        f"estimated wire time={timing['wire_time_s'] * 1000:.2f} ms."
+    )
+    sequence = " -> ".join(
+        f"{angle:g}" for angle in rotation_angles + (rotation_angles[0],)
+    )
+    output_fn(f"Angle sequence ({mode}): {sequence} degrees.")
+    output_fn(
+        "Press Ctrl+C to stop."
+        if not dry_run
+        else "Dry-run mode: no serial port will be opened."
+    )
+
+    frames_sent = 0
+    effective_period_s = timing["effective_rotation_period_s"]
+    effective_interval_s = timing["effective_update_interval_s"]
+    rotation_epoch = None
+    next_deadline = None
+
+    try:
+        if dry_run:
+            connection_scope = contextlib.nullcontext(None)
+        else:
+            connection_scope = protocol.open_serial(
+                port, serial_factory=serial_factory, sleep=sleep
+            )
+        with connection_scope as connection:
+            while not stop_event.is_set():
+                if frames_sent >= 1:
+                    if max_updates is not None and frames_sent >= max_updates:
+                        break
+                    now = clock()
+                    if duration_s is not None and rotation_epoch is not None:
+                        if now - rotation_epoch >= duration_s:
+                            break
+                    wait_s = max(0.0, next_deadline - now)
+                    if wait_s:
+                        sleep(wait_s)
+                    if stop_event.is_set():
+                        break
+
+                frame_started = clock()
+                if frames_sent == 0:
+                    alpha_degrees = rotation_angles[0]
+                else:
+                    elapsed_s = max(0.0, frame_started - rotation_epoch)
+                    if duration_s is not None and elapsed_s >= duration_s:
+                        break
+                    alpha_degrees = alpha_at_elapsed_time(
+                        elapsed_s, effective_period_s, mode
+                    )
+
+                phase_bins = acoustics.steering_phase_bins(
+                    alpha_degrees,
+                    beta_deg,
+                    frequency_hz=frequency_hz,
+                    sound_speed=sound_speed,
+                )
+                frame = protocol.build_frame(phase_bins)
+                if dry_run:
+                    payload = frame[1:-1]
+                    output_fn(
+                        f"[DRY RUN] frame={frames_sent + 1}, "
+                        f"alpha={alpha_degrees:.3f} deg, "
+                        f"beta={beta_deg:.3f} deg, bytes={len(frame)}, "
+                        f"header=0x{frame[0]:02X}, "
+                        f"first_phase_bytes={payload[:8].hex(' ')}, "
+                        f"... last_phase_byte=0x{payload[-1]:02X}, "
+                        f"footer=0x{frame[-1]:02X}"
+                    )
+                else:
+                    protocol.send_frame(connection, frame)
+                frame_finished = clock()
+                send_duration_s = (
+                    0.0 if dry_run else max(0.0, frame_finished - frame_started)
+                )
+                frames_sent += 1
+
+                updated_timing = calculate_rotation_timing(
+                    rotation_period_s,
+                    update_interval_s,
+                    measured_send_time_s=send_duration_s,
+                    mode=mode,
+                )
+                if (
+                    updated_timing["effective_rotation_period_s"]
+                    > effective_period_s
+                ):
+                    if rotation_epoch is not None:
+                        cycle_fraction = (
+                            max(0.0, frame_finished - rotation_epoch)
+                            % effective_period_s
+                        ) / effective_period_s
+                        rotation_epoch = frame_finished - (
+                            cycle_fraction
+                            * updated_timing["effective_rotation_period_s"]
+                        )
+                    effective_period_s = updated_timing[
+                        "effective_rotation_period_s"
+                    ]
+                    output_fn(
+                        "Frame transmission exceeded the estimated cadence; "
+                        f"slowing rotation to "
+                        f"{360.0 / effective_period_s:.2f} deg/s."
+                    )
+                effective_interval_s = updated_timing[
+                    "effective_update_interval_s"
+                ]
+                if frames_sent == 1:
+                    rotation_epoch = frame_started
+                    output_fn(
+                        f"Effective timing: interval={effective_interval_s:.3f} s, "
+                        f"period={effective_period_s:.3f} s, "
+                        f"speed={360.0 / effective_period_s:.2f} deg/s."
+                    )
+                next_deadline = frame_started + effective_interval_s
+    except KeyboardInterrupt:
+        output_fn("Rotation stopped by user.")
+
+    summary = {
+        "frames_sent": frames_sent,
+        "effective_update_interval_s": effective_interval_s,
+        "effective_rotation_period_s": effective_period_s,
+        "effective_angular_speed_deg_s": 360.0 / effective_period_s,
+    }
+    output_fn(
+        f"Rotation ended after {frames_sent} frames; effective speed="
+        f"{summary['effective_angular_speed_deg_s']:.2f} deg/s."
+    )
+    return summary

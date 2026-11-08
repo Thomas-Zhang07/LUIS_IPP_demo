@@ -62,6 +62,10 @@ semantic versioning once releases are tagged.
   `transducer_phase_steer_2d.py` (D9).
 - `transducer_phase_steer.py` now uses the shared acoustics, protocol and
   serial modules, and adds `--frequency`/`--sound-speed`.
+- `transducer_phase_steer_2d.py` is reduced from 1,242 to 331 lines: steering
+  math, frame building, rotation timing and plotting now come from the shared
+  modules. All existing flags, including the `--angle`/`--legacy-angle` alias
+  and both plot flags, are preserved; `--frequency`/`--sound-speed` are added.
 
 ### Fixed
 

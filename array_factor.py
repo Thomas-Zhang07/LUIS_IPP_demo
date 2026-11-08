@@ -402,3 +402,64 @@ def plot_array_factor(
     figure.colorbar(image, ax=axis, label="Normalized array factor (dB)")
     axis.legend()
     plt.show()
+
+
+def plot_rotation_phase_samples(
+    off_axis_degrees: float,
+    mode: str = "four",
+    *,
+    frequency_hz=acoustics.DEFAULT_FREQUENCY_HZ,
+    sound_speed=acoustics.DEFAULT_SOUND_SPEED_MPS,
+) -> None:
+    """Plot physical phase maps for each selected rotation direction."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as error:
+        raise RuntimeError(
+            "Install matplotlib to plot phase diagnostics."
+        ) from error
+
+    from trajectory import get_rotation_angles
+
+    acoustics.validate_steering_angles(0.0, off_axis_degrees)
+    rotation_angles = get_rotation_angles(mode)
+    rows = math.ceil(len(rotation_angles) / 2)
+    figure, axes = plt.subplots(
+        rows, 2, figsize=(10, 4 * rows), constrained_layout=True
+    )
+    axes = np.asarray(axes).reshape(-1)
+    image = None
+    for axis, alpha_degrees in zip(axes, rotation_angles):
+        phase_bins = acoustics.steering_phase_bins(
+            alpha_degrees,
+            off_axis_degrees,
+            frequency_hz=frequency_hz,
+            sound_speed=sound_speed,
+        )
+        x_coordinates, y_coordinates, phase_grid = physical_phase_grid(phase_bins)
+        image = axis.imshow(
+            phase_grid,
+            origin="lower",
+            extent=(
+                x_coordinates[0] * 1000,
+                x_coordinates[-1] * 1000,
+                y_coordinates[0] * 1000,
+                y_coordinates[-1] * 1000,
+            ),
+            interpolation="nearest",
+            vmin=0,
+            vmax=PHASE_BINS - 1,
+            cmap="twilight",
+        )
+        axis.set_title(
+            f"alpha = {alpha_degrees:.0f} deg, beta = {off_axis_degrees:.1f} deg"
+        )
+        axis.set_xlabel("x (mm)")
+        axis.set_ylabel("y (mm)")
+        axis.set_aspect("equal")
+    for axis in axes[len(rotation_angles):]:
+        axis.set_visible(False)
+    figure.colorbar(
+        image, ax=axes.tolist(), label="Phase bin (logical physical grid)"
+    )
+    plt.show()
