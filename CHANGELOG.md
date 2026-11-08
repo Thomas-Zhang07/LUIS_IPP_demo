@@ -21,6 +21,8 @@ semantic versioning once releases are tagged.
 
 - Port discovery and selection now live in one implementation in
   `serial_utils.py`, with injectable input/output functions.
+- `transducer_all_on.py` now uses the shared protocol and serial modules;
+  its flags and frame bytes are unchanged.
 
 ### Fixed
 

@@ -12,7 +12,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 2. `fix(encoding): convert GBK sources to UTF-8 and repair onoff.py`
 - [x] 3. `feat(protocol): shared frame builders and serial transport`
 - [x] 4. `refactor(serial-utils): unify port selection`
-- [ ] 5. `refactor(all-on): use shared protocol layer`
+- [x] 5. `refactor(all-on): use shared protocol layer`
 - [ ] 6. `feat(acoustics): shared physics and quantization`
 - [ ] 7. `fix(focus): shared physics; dry-run never prompts for a port`
 - [ ] 8. `feat(trajectory): deadline-based streaming and generators`
