@@ -16,7 +16,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 6. `feat(acoustics): shared physics and quantization`
 - [x] 7. `fix(focus): shared physics; dry-run never prompts for a port`
 - [x] 8. `feat(trajectory): deadline-based streaming and generators`
-- [ ] 9. `refactor(line-circle): adopt shared trajectory runner`
+- [x] 9. `refactor(line-circle): adopt shared trajectory runner`
 - [ ] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
 - [ ] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
 - [ ] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
@@ -37,12 +37,12 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D4 — `--dry-run` prompts for / requires a port (hover, vortex) (commit 7)
 - [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)
 - [x] D6 — wavelength inconsistency (commit 6)
-- [ ] D7 — circle default 2.0 s vs docs 5 s
+- [x] D7 — circle default 2.0 s vs docs 5 s (commit 9)
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
 - [ ] D9 — dead beta-optimization code (168 lines)
 - [ ] D10 — duplicated port selection / serial config / frame builders / focus math
 - [x] D11 — `assert` used for validation (commit 7)
-- [ ] D12 — drifting `sleep(interval)` in line trajectory
+- [x] D12 — drifting `sleep(interval)` in line trajectory (commit 9)
 - [ ] D13 — `mode_control.py` runs on import, hardcoded COM9
 - [ ] D15 — README omits scripts and has stale samples
 

@@ -40,13 +40,11 @@ def test_onoff_source_compiles():
 
 
 def test_chinese_strings_preserved():
-    assert "蓝牙链接上的标准串行" in _read(ROOT / "onoff.py")
+    assert "无法打开串口" in _read(ROOT / "transducer_all_on.py")
 
     vortex = _read(ROOT / "single_point_vortex.py")
     assert "逆时针" in vortex
     assert "顺时针" in vortex
-
-    assert "π" in _read(ROOT / "single_point_hover.py")
 
 
 def test_emitters_first_group_is_unchanged():

@@ -41,7 +41,7 @@ from cli_utils import (  # noqa: E402
     print_phase_top_view,
     read_target_triplet,
 )
-from emitters import EMITTERS_ORDER, EMITTERS_POS, N_EMITTERS  # noqa: E402
+from emitters import EMITTERS_ORDER  # noqa: E402
 from protocol import (  # noqa: E402
     BAUD_RATE,
     PHASE_BINS,
@@ -54,28 +54,6 @@ from serial_utils import print_available_ports, resolve_serial_port  # noqa: E40
 BAUD = BAUD_RATE  # backward-compatible name used by the trajectory scripts
 DEFAULT_TARGET = (0.075, 0.075, 0.0)
 
-
-# --- Backward-compatible helpers -------------------------------------------
-# single_point_line.py and single_point_circle.py import these until they move
-# to trajectory.py. They delegate to the shared acoustics/protocol modules.
-
-def compute_phases_for_focus(target_pos, emitters_pos=EMITTERS_POS):
-    """Compute continuous focus phases (radians, 0..2π) for one target."""
-    return focus_phases(target_pos, emitters_pos=emitters_pos)
-
-
-def discretize_phases_to_bins(phases, num_bins=PHASE_BINS):
-    """Map continuous phases to discrete bins 0..num_bins-1."""
-    return quantize_phase_bins(phases, num_bins=num_bins)
-
-
-def build_uart_frame(phase_values, transmit_order=None):
-    """Build a protocol frame; a None order keeps logical emitter order."""
-    order = np.arange(N_EMITTERS) if transmit_order is None else transmit_order
-    return build_frame(phase_values, transmit_order=order)
-
-
-# ---------------------------------------------------------------------------
 
 def send_focus_frame_to_port(
     port,

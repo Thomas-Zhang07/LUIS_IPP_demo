@@ -30,6 +30,11 @@ semantic versioning once releases are tagged.
   `serial_utils.py`, with injectable input/output functions.
 - `transducer_all_on.py` now uses the shared protocol and serial modules;
   its flags and frame bytes are unchanged.
+- `single_point_line.py` and `single_point_circle.py` now use the shared
+  trajectory runner. The line trajectory follows absolute deadlines instead
+  of accumulating `sleep()` drift (D12), and both accept
+  `--frequency`/`--sound-speed`. The circle `--help` now correctly states the
+  2.0 s default (D7).
 
 ### Fixed
 
