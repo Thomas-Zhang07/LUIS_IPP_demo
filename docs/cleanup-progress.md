@@ -15,7 +15,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 5. `refactor(all-on): use shared protocol layer`
 - [x] 6. `feat(acoustics): shared physics and quantization`
 - [x] 7. `fix(focus): shared physics; dry-run never prompts for a port`
-- [ ] 8. `feat(trajectory): deadline-based streaming and generators`
+- [x] 8. `feat(trajectory): deadline-based streaming and generators`
 - [ ] 9. `refactor(line-circle): adopt shared trajectory runner`
 - [ ] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
 - [ ] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`

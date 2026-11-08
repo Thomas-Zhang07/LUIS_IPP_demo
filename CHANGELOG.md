@@ -17,6 +17,9 @@ semantic versioning once releases are tagged.
   configurable carrier frequency and sound speed.
 - Shared `cli_utils.py`: argparse groups, target prompting, and phase-map /
   frame display used by the demo CLIs.
+- Shared `trajectory.py`: circle/line point generators, ping-pong indexing,
+  absolute-deadline frame streaming, and single-connection ON/OFF and
+  bit-pattern runners.
 - Test tooling: `requirements.txt`, `pytest.ini`, and shared pytest fixtures
   with hardware-free serial and clock fakes.
 - `docs/cleanup-progress.md` to track the repository cleanup.
