@@ -59,6 +59,16 @@ def test_quantizer_wraps_full_circle_to_zero():
     assert bins.tolist() == [0, 0, 0]
 
 
+def test_quantizer_snaps_near_2pi_to_bin_zero_not_last_bin():
+    # One ULP below 2*pi snaps to the 2*pi boundary, which wraps to bin 0.
+    phase = np.nextafter(acoustics.TWO_PI, 0.0)
+    assert acoustics.quantize_phase_bins([phase])[0] == 0
+
+    # Clearly below the boundary must remain the last bin.
+    phase = acoustics.TWO_PI * 15.5 / acoustics.PHASE_BINS
+    assert acoustics.quantize_phase_bins([phase])[0] == 15
+
+
 def test_quantizer_rejects_nonfinite_phases():
     with pytest.raises(ValueError):
         acoustics.quantize_phase_bins([0.0, float("inf")])

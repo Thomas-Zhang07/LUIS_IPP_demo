@@ -40,6 +40,9 @@ semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Phase quantization now wraps a boundary value snapped at 2π to bin 0
+  instead of clipping it to bin 15, which had introduced a nearly 2π phase
+  error on affected transducers.
 - Wavelength is now derived consistently from carrier frequency and sound
   speed (defaults 40 kHz / 343 m/s) instead of 0.00865 m in the focus scripts
   and 343/40000 m in the steering scripts. Focus and vortex frame bytes shift

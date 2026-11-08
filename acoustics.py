@@ -102,8 +102,8 @@ def quantize_phase_bins(phases, num_bins: int = PHASE_BINS) -> np.ndarray:
         nearest_boundaries,
         scaled,
     )
-    phase_bins = np.floor(scaled).astype(int)
-    return np.clip(phase_bins, 0, bins - 1).astype(np.uint8)
+    phase_bins = np.mod(np.floor(scaled).astype(int), bins)
+    return phase_bins.astype(np.uint8)
 
 
 def focus_phases(

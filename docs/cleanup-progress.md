@@ -54,3 +54,12 @@ commit that closes an item and is deleted when the cleanup is complete.
       (11/11 exit 0)
 - [ ] Phase 3 (commits 13–18): full test suite + dry-run matrix
 - [ ] Post-cleanup: independent code-review agent pass, findings triaged/fixed
+
+## Review follow-ups (AGY + code-review)
+
+- [x] R1 — quantizer snapped a 2π boundary to bin 15 instead of bin 0
+- [ ] R2 — ON/OFF scripts reject UART-achievable rates below 20 Hz
+- [ ] R3 — headless runs crash on `EOFError` instead of a clean message
+- [ ] R4 — rotation deadlines anchored per-frame rather than to the epoch
+- [ ] R5 — document focus/steering phase-sign and vortex-center caveats
+- [ ] R6 — triage the code-review skill findings
