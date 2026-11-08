@@ -4,78 +4,34 @@
 Example:
     10110001
 
-This script will repeat the pattern over time. Each 8-bit value is interpreted as:
+Each bit selects the state of the whole array:
     1 -> ON  (send full-frame value 0x00)
     0 -> OFF (send full-frame value 0x10)
 
-The array is toggled as a whole, not per transducer, using the send_frame
-protocol already used in this project:
-    0xFE + 256 payload bytes + 0xFD
+The protocol is ``0xFE + 256 payload bytes + 0xFD``. The serial port is opened
+once per run instead of once per bit.
 """
 
 import argparse
-import time
+import math
+import sys
+from pathlib import Path
 
-import serial
-import serial.tools.list_ports
+DEMO_DIR = Path(__file__).resolve().parent
+if str(DEMO_DIR) not in sys.path:
+    sys.path.insert(0, str(DEMO_DIR))
 
-BAUD = 38400
-N_EMITTERS = 256
-HEADER = 0xFE
-FOOTER = 0xFD
-ON_VALUE = 0x00
-OFF_VALUE = 0x10
-
-
-def list_ports():
-    return list(serial.tools.list_ports.comports())
+from serial_utils import print_available_ports, select_serial_port  # noqa: E402
+from trajectory import run_bit_pattern  # noqa: E402
 
 
-def print_port_list():
-    ports = list_ports()
-    print("Scanning serial ports...", flush=True)
-
-    if not ports:
-        print("No serial ports detected. Please connect the device and try again.", flush=True)
-        return None
-
-    print("\nAvailable serial ports:", flush=True)
-    for i, port in enumerate(ports):
-        print(f"[{i}] {port.device} ({port.description})", flush=True)
-    return ports
-
-
-def select_serial_port():
-    ports = print_port_list()
-    if not ports:
-        raise RuntimeError("No serial ports detected.")
-
-    while True:
-        try:
-            idx = int(input("\nSelect port number: ").strip())
-            if 0 <= idx < len(ports):
-                selected = ports[idx].device
-                print(f"Selected {selected}")
-                return selected
-            print("Invalid selection.")
-        except ValueError:
-            print("Please enter a valid integer.")
-        except Exception as exc:
-            print(f"Cannot select port: {exc}")
-
-
-def build_uniform_frame(value):
-    payload = bytes([value & 0xFF]) * N_EMITTERS
-    return bytes([HEADER]) + payload + bytes([FOOTER])
-
-
-def parse_bit_pattern(raw):
+def parse_bit_pattern(raw: str):
     clean = raw.strip().replace(" ", "").replace(",", "")
     if len(clean) != 8:
         raise ValueError("Pattern must contain exactly 8 bits.")
-    if any(ch not in "01" for ch in clean):
+    if any(character not in "01" for character in clean):
         raise ValueError("Pattern can only contain 0 and 1 characters.")
-    return [1 if ch == "1" else 0 for ch in clean]
+    return [1 if character == "1" else 0 for character in clean]
 
 
 def prompt_for_pattern():
@@ -83,22 +39,29 @@ def prompt_for_pattern():
         raw = input("Enter 8-bit binary pattern, e.g. 10110001: ").strip()
         try:
             return parse_bit_pattern(raw)
-        except ValueError as exc:
-            print(f"{exc}. Please try again.")
+        except ValueError as error:
+            print(f"{error}. Please try again.")
+
+
+def parse_bit_seconds(raw):
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Bit duration must be a number.") from error
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("Time per bit must be greater than 0.")
+    return value
 
 
 def prompt_for_bit_seconds():
     while True:
-        raw = input("Enter time for each bit in seconds (for example 0.1): ").strip()
+        raw = input(
+            "Enter time for each bit in seconds (for example 0.1): "
+        ).strip()
         try:
-            value = float(raw)
-        except ValueError:
-            print("Please enter a valid number of seconds.")
-            continue
-        if value <= 0:
-            print("Time per bit must be greater than 0.")
-            continue
-        return value
+            return parse_bit_seconds(raw)
+        except ValueError as error:
+            print(f"{error}. Please try again.")
 
 
 def prompt_for_duration():
@@ -110,104 +73,100 @@ def prompt_for_duration():
     except ValueError:
         print("Invalid duration; using continuous mode.")
         return None
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         print("Duration must be positive; using continuous mode.")
         return None
     return value
 
 
-def send_frame(port, frame):
-    with serial.Serial(
-        port,
-        BAUD,
-        bytesize=8,
-        parity='N',
-        stopbits=1,
-        timeout=2,
-        rtscts=False,
-        dsrdtr=False,
-    ) as ser:
-        ser.dtr = False
-        ser.rts = False
-        time.sleep(0.3)
-        ser.write(frame)
-        ser.flush()
-        print(f"Sent frame ({len(frame)} bytes): {frame.hex(' ')}")
-
-
-def play_pattern(port, pattern, bit_seconds, duration_seconds=None):
-    """Repeat the user pattern endlessly or for a fixed length of time."""
-    frames = {
-        0: build_uniform_frame(OFF_VALUE),
-        1: build_uniform_frame(ON_VALUE),
-    }
-
-    deadline = None if duration_seconds is None else time.monotonic() + duration_seconds
-    step = 0
-
-    print(f"\nUsing port: {port}")
-    print(f"Pattern: {''.join('1' if bit else '0' for bit in pattern)}")
-    print(f"Each bit lasts {bit_seconds:.3f} seconds")
-    if duration_seconds is None:
-        print("Looping continuously. Press Ctrl+C to stop.\n")
-    else:
-        print(f"Total duration: {duration_seconds:.3f} s\n")
-
-    while True:
-        if deadline is not None and time.monotonic() >= deadline:
-            print("Duration reached; stopping.")
-            break
-
-        bit_value = pattern[step % len(pattern)]
-        frame = frames[bit_value]
-        send_frame(port, frame)
-        print(f"Step {step + 1}: bit={bit_value} ({'ON' if bit_value else 'OFF'})")
-        time.sleep(bit_seconds)
-        step += 1
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Repeat an 8-bit ON/OFF pattern across the full 256-transducer array.")
-    parser.add_argument("--port", type=str, help="Serial port, e.g. COM3 or /dev/rfcomm0")
-    parser.add_argument("--pattern", type=str, help="8-bit binary pattern to repeat, e.g. 10110001")
-    parser.add_argument("--bit-seconds", type=float, help="How long each bit lasts in seconds")
-    parser.add_argument("--duration", type=float, help="Run for this many seconds; omit for continuous mode")
-    parser.add_argument("--list-ports", action="store_true", help="Print available serial ports and exit")
+    parser = argparse.ArgumentParser(
+        description="Repeat an 8-bit ON/OFF pattern across the full 256-transducer array."
+    )
+    parser.add_argument("--port", type=str, help="Serial port, e.g. COM3")
+    parser.add_argument(
+        "--pattern", type=str, help="8-bit binary pattern to repeat, e.g. 10110001"
+    )
+    parser.add_argument(
+        "--bit-seconds", type=float, help="How long each bit lasts in seconds"
+    )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        help="Run for this many seconds; omit for continuous mode",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Describe the run without opening a port"
+    )
+    parser.add_argument(
+        "--list-ports", action="store_true", help="Print available serial ports and exit"
+    )
     args = parser.parse_args()
 
     if args.list_ports:
-        ports = list_ports()
-        if not ports:
-            print("No serial ports detected.")
-            return
-        print_port_list()
+        print_available_ports()
         return
 
-    try:
-        port = args.port if args.port else select_serial_port()
-    except Exception as exc:
-        print(f"Port selection failed: {exc}")
-        return
-
-    try:
-        pattern = parse_bit_pattern(args.pattern) if args.pattern else prompt_for_pattern()
-    except ValueError as exc:
-        print(f"{exc}")
-        return
-
-    if args.bit_seconds is not None:
-        bit_seconds = args.bit_seconds
+    if args.dry_run:
+        if args.pattern is None:
+            parser.error("--pattern is required with --dry-run")
+        if args.bit_seconds is None:
+            parser.error("--bit-seconds is required with --dry-run")
+        port = None
     else:
-        bit_seconds = prompt_for_bit_seconds()
-
-    duration_seconds = args.duration if args.duration is not None else prompt_for_duration()
+        if args.port:
+            port = args.port
+        else:
+            try:
+                port = select_serial_port()
+            except (RuntimeError, KeyboardInterrupt) as error:
+                print(f"Port selection failed: {error}")
+                return
 
     try:
-        play_pattern(port, pattern, bit_seconds, duration_seconds)
+        pattern = (
+            parse_bit_pattern(args.pattern)
+            if args.pattern is not None
+            else prompt_for_pattern()
+        )
+        bit_seconds = (
+            parse_bit_seconds(args.bit_seconds)
+            if args.bit_seconds is not None
+            else prompt_for_bit_seconds()
+        )
+    except ValueError as error:
+        parser.error(str(error))
+
+    if args.duration is not None:
+        duration_seconds = args.duration
+    elif args.dry_run:
+        duration_seconds = None
+    else:
+        duration_seconds = prompt_for_duration()
+
+    if not args.dry_run:
+        print(f"\nUsing port: {port}")
+    print(f"Pattern: {''.join(str(bit) for bit in pattern)}")
+    print(f"Each bit lasts {bit_seconds:.3f} seconds")
+    if duration_seconds is None:
+        print("Duration: continuous (Ctrl+C to stop)")
+    else:
+        print(f"Total duration: {duration_seconds:.3f} s")
+
+    try:
+        run_bit_pattern(
+            port=port,
+            pattern=pattern,
+            bit_seconds=bit_seconds,
+            duration_s=duration_seconds,
+            dry_run=args.dry_run,
+        )
     except KeyboardInterrupt:
         print("\nStopped by user.")
-    except serial.SerialException as exc:
-        print(f"Serial error: {exc}")
+    except ValueError as error:
+        parser.error(str(error))
+    except RuntimeError as error:
+        print(f"Serial error: {error}")
 
 
 if __name__ == "__main__":

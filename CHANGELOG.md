@@ -47,6 +47,9 @@ semantic versioning once releases are tagged.
 - The focus scripts now apply `--baud` to the serial connection (previously
   it only affected port selection), and use the shared frame validator
   instead of an `assert` (D11).
+- `onoff.py` and `bit_pattern_onoff.py` now open the serial port once per run
+  instead of once per half-cycle/bit, add `--dry-run`, and warn when the
+  requested rate exceeds the ~7.44 Hz / ~67 ms wire-time limit (D5).
 
 ### Fixed
 

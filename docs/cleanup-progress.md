@@ -17,7 +17,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] 7. `fix(focus): shared physics; dry-run never prompts for a port`
 - [x] 8. `feat(trajectory): deadline-based streaming and generators`
 - [x] 9. `refactor(line-circle): adopt shared trajectory runner`
-- [ ] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
+- [x] 10. `fix(onoff-patterns): open serial once, add dry-run, warn on wire time`
 - [ ] 11. `refactor(onoff-demo): adopt shared toggle runner; add dry-run`
 - [ ] 12. `refactor(onoff-steer): shared toggle runner; carrier flags`
 - [ ] 13. `feat(array-factor): extract analysis module; remove dead beta code`
@@ -35,7 +35,7 @@ commit that closes an item and is deleted when the cleanup is complete.
 - [x] D2 — GBK sources with declarations (`single_point_hover.py`, `single_point_vortex.py`) (commit 2)
 - [ ] D3 — README contains 8 U+FFFD characters
 - [x] D4 — `--dry-run` prompts for / requires a port (hover, vortex) (commit 7)
-- [ ] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff)
+- [x] D5 — port reopened per half-cycle/bit (onoff, bit_pattern_onoff) (commit 10)
 - [x] D6 — wavelength inconsistency (commit 6)
 - [x] D7 — circle default 2.0 s vs docs 5 s (commit 9)
 - [ ] D8 — README wrong about radius and Ctrl+C all-off behavior
