@@ -11,13 +11,31 @@ import mode_control
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_mode_payload_layout():
+def test_mode_payload_layout_defaults_to_all_on_frame():
     payload = mode_control.build_mode_payload("c4")
+    assert len(payload) == 259
+    assert payload[0] == 0xC9
+    assert payload[1] == 0xFE
+    assert payload[2:-1] == bytes([0x00]) * 256
+    assert payload[-1] == 0xFD
+
+
+def test_mode_payload_off_frame():
+    payload = mode_control.build_mode_payload("c4", "off")
     assert len(payload) == 259
     assert payload[0] == 0xC9
     assert payload[1] == 0xFE
     assert payload[2:-1] == bytes([0x10]) * 256
     assert payload[-1] == 0xFD
+
+
+def test_mode_payload_keep_sends_command_only():
+    assert mode_control.build_mode_payload("c4", "keep") == bytes([0xC9])
+
+
+def test_unknown_frame_raises():
+    with pytest.raises(ValueError):
+        mode_control.build_mode_payload("c4", "sideways")
 
 
 def test_all_modes_map_to_expected_bytes():

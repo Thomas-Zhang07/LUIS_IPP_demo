@@ -51,7 +51,7 @@ EXPECTED_FLAGS = {
         "--update-interval", "--duration", "--plot-phase-rotation",
         "--plot-array-factor", "--frequency", "--sound-speed",
     },
-    "mode_control.py": {"--port", "--mode", "--dry-run", "--list-ports"},
+    "mode_control.py": {"--port", "--mode", "--frame", "--dry-run", "--list-ports"},
 }
 
 DRY_RUN_CASES = [

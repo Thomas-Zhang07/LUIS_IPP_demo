@@ -98,7 +98,7 @@ the board keeps its last state.
 | `transducer_onoff_demo.py` | Toggles the whole array ON/OFF at a requested rate, with timestamps. | `--frequency`, `--duration`, `--dry-run` |
 | `onoff.py` | Same toggle, one serial connection per run. | `--frequency`, `--duration`, `--dry-run` |
 | `bit_pattern_onoff.py` | Repeats an 8-bit pattern (`1` = ON, `0` = OFF). | `--pattern`, `--bit-seconds`, `--duration`, `--dry-run` |
-| `mode_control.py` | Sends a mode command byte (`0xC8`/`0xC9`/`0xCA`/`0xCB`) followed by an all-off frame. | `--mode`, `--port`, `--dry-run`, `--list-ports` |
+| `mode_control.py` | Sends a mode command byte (`0xC8`/`0xC9`/`0xCA`/`0xCB`) followed by a whole-array frame (all-on by default). | `--mode`, `--frame {on,off,keep}`, `--port`, `--dry-run`, `--list-ports` |
 
 The `--frequency` on these scripts is the ON/OFF envelope rate, not the
 carrier. `transducer_onoff_steer.py` also sends an OFF frame before exiting.
@@ -136,6 +136,11 @@ Steering conventions:
 - **No all-off frame on interrupt** for most scripts: line, circle, hover,
   vortex, onoff, bit pattern and the demo scripts leave the board in its last
   state. `transducer_onoff_steer.py` is the exception and sends OFF on exit.
+- **Audio modes gate the drive:** the FPGA's C4, Little-star and 200 Hz modes
+  chop the 40 kHz drive, so they are audible only while the transducers are
+  driven. `mode_control.py` therefore sends an all-on frame (phase 0) by
+  default; `--frame off` mutes the array and `--frame keep` leaves the last
+  latched phase pattern (e.g. a steering pattern) in place.
 - **ON/OFF rate:** full-frame toggling is limited to about 7.4 Hz by the UART.
 - **Phase resolution:** 16 bins (0..15), plus `0x10` for off.
 - **Quantization** snaps values within a few ULPs of an exact bin boundary so
@@ -192,7 +197,7 @@ serial_utils.py                port discovery and selection
 single_point_*.py              focus, vortex, line, circle demos
 transducer_*.py                all-on, ON/OFF, steering demos
 onoff.py, bit_pattern_onoff.py ON/OFF and pattern generators
-mode_control.py                mode command + all-off frame
+mode_control.py                mode command + phase frame
 tests/                         hardware-free pytest suite
 ```
 

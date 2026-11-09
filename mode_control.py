@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Send a mode-selection byte followed by an all-off frame.
+"""Send a mode-selection byte followed by a phase frame.
 
 The command byte is outside the 258-byte frame protocol; it is sent first,
-followed by ``0xFE + 256 x 0x10 + 0xFD``. The mode labels are inherited from
-the original scratch script:
+followed by a whole-array frame. The modes gate the 40 kHz drive on the FPGA,
+so the frame must leave the transducers on (phase 0) for any modulation to be
+audible:
 
-    0xC8  200  Normal mode
+    --frame on    all-on frame, ``0xFE + 256 x 0x00 + 0xFD`` (default)
+    --frame off   all-off frame, ``0xFE + 256 x 0x10 + 0xFD``
+    --frame keep  mode byte only; the last latched phase pattern stays
+
+The mode labels are inherited from the original scratch script:
+
+    0xC8  200  Normal mode (no modulation)
     0xC9  201  C4
     0xCA  202  Little star
     0xCB  203  200 Hz
@@ -22,6 +29,7 @@ if str(DEMO_DIR) not in sys.path:
 from protocol import (  # noqa: E402
     BAUD_RATE,
     build_off_frame,
+    build_on_frame,
     open_serial,
     send_frame,
 )
@@ -35,20 +43,33 @@ MODE_COMMANDS = {
     "200hz": 0xCB,
 }
 DEFAULT_MODE = "c4"
+FRAME_CHOICES = ("on", "off", "keep")
+DEFAULT_FRAME = "on"
 
 
-def build_mode_payload(mode: str = DEFAULT_MODE) -> bytes:
-    """Return the command byte followed by the standard all-off frame."""
+def build_mode_payload(mode: str = DEFAULT_MODE, frame: str = DEFAULT_FRAME) -> bytes:
+    """Return the command byte followed by the requested whole-array frame.
+
+    ``frame="keep"`` sends only the command byte, leaving whatever phase
+    pattern is already latched on the board untouched.
+    """
     try:
         command = MODE_COMMANDS[mode]
     except KeyError as error:
         raise ValueError(f"Unknown mode {mode!r}.") from error
-    return bytes([command]) + build_off_frame()
+
+    if frame == "on":
+        return bytes([command]) + build_on_frame()
+    if frame == "off":
+        return bytes([command]) + build_off_frame()
+    if frame == "keep":
+        return bytes([command])
+    raise ValueError(f"Unknown frame {frame!r}.")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Send a mode-selection byte followed by an all-off frame."
+        description="Send a mode-selection byte followed by a whole-array phase frame."
     )
     parser.add_argument("--port", help="Serial port, e.g. COM9")
     parser.add_argument(
@@ -56,6 +77,16 @@ def main() -> None:
         choices=sorted(MODE_COMMANDS),
         default=DEFAULT_MODE,
         help=f"Mode command to send (default {DEFAULT_MODE}, 0xC9)",
+    )
+    parser.add_argument(
+        "--frame",
+        choices=FRAME_CHOICES,
+        default=DEFAULT_FRAME,
+        help=(
+            "Whole-array frame sent after the mode byte: 'on' (default) keeps "
+            "the transducers driven so modulation is audible, 'off' mutes the "
+            "array, 'keep' leaves the latched phase pattern untouched"
+        ),
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Show the payload without opening a port"
@@ -69,10 +100,16 @@ def main() -> None:
         print_available_ports()
         return
 
-    payload = build_mode_payload(args.mode)
+    payload = build_mode_payload(args.mode, args.frame)
     command = payload[0]
     print(f"Mode: {args.mode} (0x{command:02X})")
-    print(f"Payload: {len(payload)} bytes (1 command + 258-byte OFF frame)")
+    if args.frame == "keep":
+        print("Payload: 1 byte (mode command only; phase pattern kept)")
+    else:
+        print(
+            f"Payload: {len(payload)} bytes "
+            f"(1 command + 258-byte {args.frame.upper()} frame)"
+        )
 
     if args.dry_run:
         print(payload.hex(" "))

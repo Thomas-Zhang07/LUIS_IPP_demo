@@ -109,3 +109,8 @@ semantic versioning once releases are tagged.
   characters, corrected the circle to a 1.5 cm radius / 3 cm diameter and a
   2 s default, corrected the Ctrl+C all-off claim, and documented every
   script, flag, protocol constraint and physics default (D3, D8, D15).
+- `mode_control.py` now sends an all-on frame after the mode byte by default.
+  The FPGA's audio modes gate the 40 kHz drive, so the previous all-off frame
+  left every channel silent; `--frame off` restores the old payload and
+  `--frame keep` sends only the mode byte, preserving an existing steering
+  pattern.
