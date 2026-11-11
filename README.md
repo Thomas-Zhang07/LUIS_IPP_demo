@@ -143,7 +143,7 @@ to the phase-only frame. It reports the ideal pattern before and after, and
 | Density thinning | ON/OFF (Hann/Gaussian) | Near sidelobe ≈ −17 dB, main gain ≈ −3 dB |
 | Phase dithering | ±1–2 bins per element | Near sidelobe ≈ −15 dB, main gain ≈ −0.5 dB |
 | Phase-only optimization | 16 bins per element | Near sidelobe ≈ −19 dB, main gain ≈ −1 dB |
-| Taper + optimization | ON/OFF + 16 bins | Near sidelobe ≈ −20 dB, main gain ≈ −4 dB |
+| Taper + optimization | ON/OFF + 16 bins | Near sidelobe ≈ −20 dB, main gain ≈ −3 to −4 dB |
 
 The numbers are idealized (isotropic elements, ideal bins) and depend on the
 analysis grid; reproduce them with `directional_speaker.py --compare`. They
@@ -181,9 +181,19 @@ python directional_speaker.py --dry-run --alpha 0 --beta 20 \
 python directional_speaker.py --dry-run --alpha 0 --beta 0 \
     --optimize-sweeps 4 --null 90:40 --null-weight 2
 
+# Best measured host-side setting: Gaussian 80% taper + 5 optimizer sweeps
+python directional_speaker.py --dry-run --alpha 0 --beta 20 \
+    --density-window gaussian --keep-fraction 0.8 \
+    --optimize-sweeps 5 --seed 1
+
 # Send the shaped frame
 python directional_speaker.py --alpha 0 --beta 20 --port COM3
 ```
+
+The best setting lowers the near sidelobe from −15.61 dB to −20.54 dB at
+β = 20° (and from −16.11 dB to −21.03 dB broadside) for about 2.8 dB of
+main-lobe gain. The grating lobes stay within 0.1 dB of the baseline, as the
+lattice requires.
 
 Thinning, dithering and the optimizer are deterministic for a given `--seed`.
 The optimizer changes only ON elements; it never re-enables a thinned element.
