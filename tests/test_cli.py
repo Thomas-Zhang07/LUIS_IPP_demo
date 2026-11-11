@@ -52,6 +52,13 @@ EXPECTED_FLAGS = {
         "--plot-array-factor", "--frequency", "--sound-speed",
     },
     "mode_control.py": {"--port", "--mode", "--frame", "--dry-run", "--list-ports"},
+    "directional_speaker.py": {
+        "--alpha", "--beta", "--frequency", "--sound-speed",
+        "--density-window", "--keep-fraction", "--seed", "--dither-bins",
+        "--optimize-sweeps", "--null", "--null-weight", "--calibration",
+        "--samples", "--compare", "--plot", "--port", "--baud", "--dry-run",
+        "--list-ports",
+    },
 }
 
 DRY_RUN_CASES = [
@@ -73,6 +80,19 @@ DRY_RUN_CASES = [
          "--duration", "0.1"],
     ),
     ("mode_control.py", ["--dry-run"]),
+    (
+        "directional_speaker.py",
+        ["--dry-run", "--alpha", "0", "--beta", "20", "--samples", "41"],
+    ),
+    (
+        "directional_speaker.py",
+        [
+            "--dry-run", "--alpha", "0", "--beta", "20",
+            "--density-window", "hann", "--keep-fraction", "0.7",
+            "--dither-bins", "1", "--optimize-sweeps", "1",
+            "--samples", "41",
+        ],
+    ),
 ]
 
 
@@ -105,6 +125,14 @@ def test_circle_help_states_two_second_default():
     result = _run("single_point_circle.py", "--help")
     assert result.returncode == 0, result.stderr
     assert "default 2.0" in result.stdout
+
+
+def test_directional_speaker_compare_prints_table():
+    result = _run("directional_speaker.py", "--compare", "--samples", "41")
+    assert result.returncode == 0, result.stderr
+    assert "Strategy" in result.stdout
+    assert "uniform + optimize" in result.stdout
+    assert "hann 70%" in result.stdout
 
 
 def test_python_O_still_raises_validation_errors():
