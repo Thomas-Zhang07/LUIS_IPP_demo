@@ -29,6 +29,19 @@ semantic versioning once releases are tagged.
   safety, mode control, README consistency, and CLI flag preservation.
 - `docs/demos.md`: design notes for the three demo experiences, the planned
   two-PCB architecture, and the hardware-dependent open questions.
+- `directivity.py`: host-side beam-shaping algorithms for the phase-only
+  frame — windowed density thinning (flat/Hann/Gaussian), deterministic phase
+  dithering, phase-only sidelobe optimization by coordinate descent with
+  optional null constraints, per-channel calibration offsets, grating-lobe
+  prediction, and idealized pattern metrics that separate near sidelobes from
+  the invariant grating lobes.
+- `directional_speaker.py`: steered directional-speaker CLI that combines
+  those algorithms, reports baseline-versus-shaped metrics, and compares every
+  strategy with `--compare`. It has `--dry-run`, `--calibration`, `--null`,
+  `--plot` and the shared port/baud flags.
+- Tests for the directivity module (mask determinism, dither bounds,
+  calibration round-trip, grating-lobe invariance, optimizer improvement and
+  mask handling) and end-to-end CLI coverage for the new script.
 
 ### Changed
 

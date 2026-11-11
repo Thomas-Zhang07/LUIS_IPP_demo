@@ -13,7 +13,7 @@ required**.
 | # | Experience | Primary scripts | Host code today | Critical dependency |
 |---|------------|-----------------|-----------------|---------------------|
 | 1 | **Acoustic levitation** — a small bead hovers and moves | `single_point_hover.py`, `single_point_line.py`, `single_point_circle.py` | Single-array focus and moving focus implemented | Phase sign; two-array phase coherence |
-| 2 | **Directional speaker** — sound audible only inside a beam | `single_point_vortex.py`, `transducer_phase_steer*.py`, `mode_control.py` | Phase shaping and steering only; no audio in the host | FPGA audio modes / carrier modulation |
+| 2 | **Directional speaker** — sound audible only inside a beam | `single_point_vortex.py`, `transducer_phase_steer*.py`, `mode_control.py`, `directional_speaker.py` | Phase shaping, steering, and host-side directivity shaping; no audio in the host | FPGA audio modes / carrier modulation |
 | 3 | **Sandbox / touch** — visible sand response or a tactile point | `single_point_circle.py` | Moving focus implemented; no amplitude modulation | Amplitude modulation; faster field updates |
 
 Shared numbers used throughout:
@@ -141,6 +141,37 @@ sound; audio still requires modulation of the carrier.
 | Static vortex | `single_point_vortex.py` |
 | Beam steering | `transducer_phase_steer*.py`, `transducer_onoff_steer.py` |
 | Mode selection | `mode_control.py` (`0xC8`–`0xCB`) |
+| Density thinning / dithering | `directivity.thinned_mask`, `dither_phase_bins` |
+| Phase-only sidelobe optimization | `directivity.BeamAnalyzer.optimize` |
+| Calibration offsets | `directivity.load_calibration_file`, `apply_calibration_bins` |
+| Combined shaping CLI | `directional_speaker.py` |
+
+#### Host-side directivity shaping (implemented)
+
+`directional_speaker.py` applies the algorithms available through a
+phase-only, ON/OFF frame and reports the idealized trade-off:
+
+| Strategy | Effect on non-grating sidelobes | Main-lobe cost |
+|----------|--------------------------------|----------------|
+| Hann/Gaussian density thinning | Lower peak (≈1–2 dB) | ≈3 dB gain, wider lobe |
+| Phase dithering | Slightly higher floor | ≈0.5 dB |
+| Phase-only optimization | Lower peak (≈2–3 dB) | ≈1 dB |
+| Taper + optimization | Lowest peak (≈3–4 dB) | ≈4 dB |
+
+These are ideal-model numbers; use `--compare` for the current direction.
+
+The important negative result: **none of these algorithms can lower the
+grating lobes.** For a periodic lattice with identical elements the array
+factor at a grating-lobe direction equals the main-lobe array factor for any
+per-element phase or ON/OFF pattern. At 10 mm pitch and 40 kHz (`d/λ = 1.166`)
+the broadside grating lobes sit near ±59° and are fixed by geometry. The
+practical mitigations are element directivity, a carrier below `c / spacing`
+= 34.3 kHz, spacing ≤ λ/2, or an aperiodic layout. The ≈3° main lobe is
+likewise aperture-limited.
+
+What the host can still do: lower the non-grating sidelobe floor, place nulls
+at chosen directions, and compensate measured per-channel phase errors
+(`--calibration`).
 
 The mode labels in `mode_control.py` — **C4**, **Little star**, **200 Hz** — look
 like musical/audio modes (`C4` is a note, "Little star" is a melody). This
@@ -168,6 +199,10 @@ labels, not verified behavior.
 |------|--------|
 | Vortex phase pattern | Implemented |
 | Beam steering | Implemented |
+| Density thinning / dithering | Implemented (host) |
+| Phase-only sidelobe optimization | Implemented (host) |
+| Calibration offsets | Implemented (host); measurement pending |
+| Grating-lobe suppression | **Not possible host-side**; geometry-limited |
 | Audio generation / modulation | Inferred FPGA capability; unverified |
 | Host audio streaming | Not possible on the current link |
 | Combined mode + steering command | Not implemented |
@@ -304,6 +339,10 @@ The serial link only determines how quickly the setpoints can change.
 7. **Confirm the speaker beam** — decide whether the directional speaker uses
    the vortex (off-axis listening) or the steered beam, and whether it uses one
    array or both.
+8. **Measure the shaped pattern** — record a far-field microphone sweep for
+   `directional_speaker.py --compare`, then calibrate the 256 per-channel
+   offsets and check whether the predicted non-grating sidelobe improvement
+   survives the real element directivity. The grating lobes will not move.
 
 ## Safety
 
