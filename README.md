@@ -15,7 +15,11 @@ simple ON/OFF patterns.
   (or `--carrier-frequency` on `transducer_onoff_steer.py`).
 - **UART:** 38400 baud, 8N1.
 - **Frame:** `0xFE` + 256 payload bytes + `0xFD` (258 bytes).
-  Payload values `0..15` select a phase bin; `0x10` disables a transducer.
+  With the legacy/phase-only firmware a payload value `0..15` selects a phase
+  bin and `0x10` disables a transducer.  With the duty-weighting firmware the
+  low nibble is the phase bin, the high nibble is an amplitude code (`0` keeps
+  the legacy full-scale pulse), and `0x10` is still OFF.  Phase-only frames
+  remain valid because their high nibble is zero.
 - **Transmit order:** the 256 payload bytes are not in logical row/column
   order. `emitters.py` holds the geometry and the hardware mapping; treat it
   as the hardware contract.
@@ -144,6 +148,8 @@ to the phase-only frame. It reports the ideal pattern before and after, and
 | Phase dithering | ±1–2 bins per element | Near sidelobe ≈ −15 dB, main gain ≈ −0.5 dB |
 | Phase-only optimization | 16 bins per element | Near sidelobe ≈ −19 dB, main gain ≈ −1 dB |
 | Taper + optimization | ON/OFF + 16 bins | Near sidelobe ≈ −20 dB, main gain ≈ −3 to −4 dB |
+| Duty amplitude (Hann) | high nibble, 8 widths | Near sidelobe ≈ −21 dB (β=20°) / −28 dB (broadside), main gain ≈ −7.6 dB |
+| Duty amplitude + optimization | high nibble + 16 bins | Near sidelobe ≈ −26 dB (β=20°) / −30 dB (broadside), main gain ≈ −8 dB |
 
 The numbers are idealized (isotropic elements, ideal bins) and depend on the
 analysis grid; reproduce them with `directional_speaker.py --compare`. They
@@ -151,8 +157,9 @@ describe the **non-grating** sidelobe floor, not the grating lobes.
 
 **Hard limit.** With a periodic lattice and identical elements, the array
 factor at a grating-lobe direction equals the main-lobe array factor for *any*
-per-element phase or ON/OFF pattern — the grating condition removes every
-phase difference. At 10 mm pitch and 40 kHz (`d/λ = 1.166`), broadside grating
+per-element phase or amplitude (including ON/OFF) pattern — the grating
+condition removes every phase difference and both lobes scale with the same
+weighted sum. At 10 mm pitch and 40 kHz (`d/λ = 1.166`), broadside grating
 lobes sit near ±59°; no host algorithm can lower them. The same limit applies
 to the ≈3° main-lobe width, which is set by the 150 mm aperture. Host
 algorithms shape the non-grating sidelobes and can place user-selected nulls
@@ -195,6 +202,38 @@ The best setting lowers the near sidelobe from −15.61 dB to −20.54 dB at
 main-lobe gain. The grating lobes stay within 0.1 dB of the baseline, as the
 lattice requires.
 
+### Duty-cycle amplitude weighting
+
+`--amplitude-window hann|gaussian` encodes a radial aperture taper into the
+high nibble of each payload byte. `--amplitude-gaussian-sigma` sets the
+Gaussian width. This requires the duty-weighting FPGA firmware; the legacy
+firmware masks the high nibble, so the same frame degrades gracefully to a
+phase-only pattern.
+
+The host maps a desired relative pressure weight `a` to a pulse width
+`w = round((16/pi) * asin(a))` in `1..8` steps of the 16-step carrier period,
+then to the firmware code. A width-`w` pulse has fundamental amplitude
+`sin(pi*w/16)`, so the smallest non-zero weight is about 0.20; zero weights
+are sent as OFF. Codes 0 and 15 are both full scale, and a phase-only frame
+(high nibble 0) is bit-for-bit unchanged.
+
+```bash
+# Hann amplitude taper (duty firmware)
+python directional_speaker.py --dry-run --alpha 0 --beta 0 --amplitude-window hann
+
+# Amplitude taper plus phase optimization
+python directional_speaker.py --dry-run --alpha 0 --beta 20 \
+    --amplitude-window gaussian --amplitude-gaussian-sigma 0.35 \
+    --optimize-sweeps 4
+```
+
+The Hann taper lowers the near sidelobe from −15.61 to −21.29 dB at β = 20°
+(and from −16.92 to −28.04 dB broadside) for about 7.6 dB of main-lobe gain.
+The four corner emitters have zero Hann weight and are sent OFF, leaving 252
+active elements. Combined with phase optimization it reaches about −26 dB
+(β = 20°) / −30 dB (broadside) for about 8 dB of main-lobe gain. Amplitude
+weighting does not change the grating-lobe ratio; see the hard limit above.
+
 Thinning, dithering and the optimizer are deterministic for a given `--seed`.
 The optimizer changes only ON elements; it never re-enables a thinned element.
 `--dither-bins` is included for experiments but measured to raise the
@@ -221,6 +260,10 @@ non-grating floor and cost main-lobe gain, so it is not recommended on its own.
   latched phase pattern (e.g. a steering pattern) in place.
 - **ON/OFF rate:** full-frame toggling is limited to about 7.4 Hz by the UART.
 - **Phase resolution:** 16 bins (0..15), plus `0x10` for off.
+- **Amplitude resolution:** the duty firmware gives 8 pulse widths (1..8 of
+  the 16 carrier steps), so the fundamental amplitude steps are
+  `sin(pi*w/16)` — about 0.20 to 1.0. It is coarse but real; per-channel DACs
+  would be needed for true continuous control.
 - **Quantization** snaps values within a few ULPs of an exact bin boundary so
   mathematically identical phases do not land in different bins.
 - **Array-factor plots are theoretical** idealized models (isotropic

@@ -55,6 +55,7 @@ EXPECTED_FLAGS = {
     "directional_speaker.py": {
         "--alpha", "--beta", "--frequency", "--sound-speed",
         "--density-window", "--keep-fraction", "--seed", "--dither-bins",
+        "--amplitude-window", "--amplitude-gaussian-sigma",
         "--optimize-sweeps", "--null", "--null-weight", "--calibration",
         "--samples", "--compare", "--plot", "--port", "--baud", "--dry-run",
         "--list-ports",
@@ -90,6 +91,14 @@ DRY_RUN_CASES = [
             "--dry-run", "--alpha", "0", "--beta", "20",
             "--density-window", "hann", "--keep-fraction", "0.7",
             "--dither-bins", "1", "--optimize-sweeps", "1",
+            "--samples", "41",
+        ],
+    ),
+    (
+        "directional_speaker.py",
+        [
+            "--dry-run", "--alpha", "0", "--beta", "20",
+            "--amplitude-window", "hann", "--optimize-sweeps", "1",
             "--samples", "41",
         ],
     ),

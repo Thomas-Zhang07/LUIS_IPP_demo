@@ -1,11 +1,15 @@
 """Host-side directivity shaping for the directional-speaker demo.
 
 The hardware frame gives each transducer one of 16 phase bins (0..15) or OFF
-(``0x10``); there is no continuous amplitude control. Within those limits this
-module provides the host-side algorithms that change the far-field pattern:
+(``0x10``).  With the duty-weighting firmware the high nibble of each payload
+byte also selects one of eight pulse widths, giving coarse per-element
+amplitude control. Within those limits this module provides the host-side
+algorithms that change the far-field pattern:
 
 * :func:`thinned_mask` -- binary amplitude shaping by keeping a windowed,
   seeded subset of the elements (uniform random, Hann or Gaussian density).
+* :func:`aperture_weights` / :func:`amplitude_codes_from_weights` -- continuous
+  taper weights (Hann or Gaussian) encoded as firmware duty codes.
 * :func:`dither_phase_bins` -- deterministic per-element phase dithering.
 * :meth:`BeamAnalyzer.optimize` -- coordinate descent over the 16 phase bins,
   minimizing the peak sidelobe outside the main lobe and the predicted
@@ -17,7 +21,8 @@ Hard physical limit
 -------------------
 For a periodic lattice with identical elements, the array factor at a grating
 lobe equals the array factor at the main lobe *for any per-element phase or
-ON/OFF pattern*, because the grating condition removes the phase differences.
+amplitude (including ON/OFF) pattern*, because the grating condition removes
+the phase differences and both lobes scale with the same weighted sum.
 No host algorithm can therefore lower the grating lobes of this 10 mm-pitch,
 40 kHz array (they sit near +/-59 degrees from broadside). Only the element
 directivity, a carrier below ``sound_speed / spacing`` (34.3 kHz for 10 mm), or
@@ -41,7 +46,7 @@ import numpy as np
 import acoustics
 from acoustics import DEFAULT_FREQUENCY_HZ, DEFAULT_SOUND_SPEED_MPS, TWO_PI
 from emitters import EMITTERS_POS, N_EMITTERS, SPACING
-from protocol import OFF_VALUE, PHASE_BINS
+from protocol import MAX_AMPLITUDE_CODE, OFF_VALUE, PHASE_BINS
 
 DEFAULT_SAMPLES = 121
 DEFAULT_MAIN_LOBE_SAFETY_FACTOR = 1.5
@@ -71,6 +76,23 @@ def validate_phase_bins(values, *, allow_off: bool = True, label: str = "phase b
     if np.any((array < 0) | (array > upper)):
         raise ValueError(f"{label} must be between 0 and {upper}.")
     return array.astype(np.uint8, copy=False)
+
+
+def validate_amplitude_codes(values, *, allow_off: bool = True) -> np.ndarray:
+    """Return a validated 256-element integer array of amplitude codes.
+
+    Codes ``0..15`` select a pulse width; :data:`OFF_VALUE` mutes a channel
+    (used for zero weights).  ``allow_off=False`` rejects the mute code.
+    """
+    array = np.asarray(values)
+    if array.shape != (N_EMITTERS,):
+        raise ValueError(f"Amplitude codes must contain exactly {N_EMITTERS} values.")
+    if not np.issubdtype(array.dtype, np.integer):
+        raise ValueError("Amplitude codes must be integers.")
+    upper = OFF_VALUE if allow_off else MAX_AMPLITUDE_CODE
+    if np.any((array < 0) | (array > upper)):
+        raise ValueError(f"Amplitude codes must be between 0 and {upper}.")
+    return array.astype(np.int16, copy=False)
 
 
 def validate_active_mask(active_mask):
@@ -193,6 +215,82 @@ def aperture_weights(
     if window == "hann":
         return 0.5 * (1.0 + np.cos(np.pi * normalized))
     return np.exp(-0.5 * (normalized / gaussian_sigma) ** 2)
+
+
+# Amplitude weighting through the firmware's duty-cycle control.
+#
+# A payload byte's high nibble is an amplitude code.  The FPGA turns it into
+# a pulse width of 1..8 steps (of the 16-step, 40 kHz period), centred on the
+# phase bin, so the fundamental pressure amplitude relative to the legacy
+# 50 % pulse is sin(pi * width / 16).
+MIN_DUTY_AMPLITUDE = math.sin(math.pi / 16)  # width 1: about 0.195
+
+
+def duty_width_from_code(code: int) -> int:
+    """Return the firmware pulse width (1..8) for an amplitude code.
+
+    Code 0 is the legacy "no amplitude information" full-scale pulse and
+    code 15 is also full scale; 1..14 map onto widths 1..8.  This mirrors
+    the ``pulse_width`` function in ``AllChannels.vhd``.
+    """
+    if isinstance(code, bool) or not isinstance(code, (int, np.integer)):
+        raise ValueError("amplitude code must be an integer.")
+    code = int(code)
+    if not 0 <= code <= 15:
+        raise ValueError("amplitude code must be between 0 and 15.")
+    if code == 0 or code >= 15:
+        return 8
+    return (code + 1) // 2
+
+
+def amplitude_from_code(code: int) -> float:
+    """Return the fundamental amplitude relative to full scale (0..1)."""
+    return math.sin(math.pi * duty_width_from_code(code) / 16.0)
+
+
+def amplitude_code_for_weight(weight: float) -> int:
+    """Map a relative pressure amplitude ``0..1`` to a firmware code.
+
+    Zero (or negative) weight returns :data:`OFF_VALUE`; a positive weight
+    is snapped to the nearest representable width.  The firmware's smallest
+    non-zero width already gives ``sin(pi/16) ~ 0.195``, so quieter non-zero
+    weights round up to that level.
+    """
+    if isinstance(weight, bool) or not isinstance(
+        weight, (int, float, np.integer, np.floating)
+    ):
+        raise ValueError("weight must be a number.")
+    value = float(weight)
+    if not math.isfinite(value):
+        raise ValueError("weight must be finite.")
+    if value <= 0.0:
+        return OFF_VALUE
+    if value > 1.0:
+        raise ValueError("weight must not exceed 1.")
+
+    width = math.floor((16.0 / math.pi) * math.asin(min(value, 1.0)) + 0.5)
+    width = max(1, min(8, int(width)))
+    code = math.floor((15.0 * width / 8.0) + 0.5)
+    return max(1, min(15, int(code)))
+
+
+def amplitude_codes_from_weights(weights) -> np.ndarray:
+    """Return 256 amplitude codes for per-element relative weights.
+
+    Weights must be finite and in ``0..1``.  A zero weight becomes
+    :data:`OFF_VALUE`, which both mutes the channel on the wire and removes
+    it from the active mask in :class:`BeamAnalyzer`.
+    """
+    values = np.asarray(weights, dtype=float)
+    if values.shape != (N_EMITTERS,):
+        raise ValueError(f"Amplitude weights must contain {N_EMITTERS} values.")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Amplitude weights must be finite.")
+    if np.any((values < 0.0) | (values > 1.0)):
+        raise ValueError("Amplitude weights must be between 0 and 1.")
+    return np.asarray(
+        [amplitude_code_for_weight(value) for value in values], dtype=int
+    )
 
 
 def thinned_mask(
@@ -474,24 +572,33 @@ class BeamAnalyzer:
             spacing=self.lattice_spacing_m, sound_speed=self.sound_speed
         )
 
-    def _weight_vector(self, phase_bins, active_mask=None):
+    def _amplitude_vector(self, amplitude_codes=None) -> np.ndarray:
+        if amplitude_codes is None:
+            return np.ones(N_EMITTERS, dtype=float)
+        codes = validate_amplitude_codes(amplitude_codes)
+        amplitudes = np.zeros(N_EMITTERS, dtype=float)
+        for index, code in enumerate(codes):
+            if code != OFF_VALUE:
+                amplitudes[index] = amplitude_from_code(int(code))
+        return amplitudes
+
+    def _weight_vector(self, phase_bins, active_mask=None, amplitude_codes=None):
         bins = validate_phase_bins(phase_bins)
-        active = (
-            bins != OFF_VALUE
-            if active_mask is None
-            else validate_active_mask(active_mask) & (bins != OFF_VALUE)
-        )
+        amplitudes = self._amplitude_vector(amplitude_codes)
+        active = (bins != OFF_VALUE) & (amplitudes > 0.0)
+        if active_mask is not None:
+            active &= validate_active_mask(active_mask)
         if not np.any(active):
             raise ValueError("At least one emitter must be active with a phase bin.")
         weights = np.zeros(N_EMITTERS, dtype=complex)
-        weights[active] = np.exp(
+        weights[active] = amplitudes[active] * np.exp(
             1j * bins[active].astype(float) * TWO_PI / PHASE_BINS
         )
         return weights, active
 
-    def field(self, phase_bins, active_mask=None) -> np.ndarray:
+    def field(self, phase_bins, active_mask=None, amplitude_codes=None) -> np.ndarray:
         """Return the complex array factor on the direction grid."""
-        weights, _ = self._weight_vector(phase_bins, active_mask)
+        weights, _ = self._weight_vector(phase_bins, active_mask, amplitude_codes)
         return self._steering_matrix @ weights
 
     def _target_amplitude(self, weights) -> float:
@@ -506,14 +613,15 @@ class BeamAnalyzer:
         beta = math.degrees(math.acos(max(-1.0, min(1.0, direction[2]))))
         return 20.0 * math.log10(max(float(ratio[index]), _TINY)), azimuth, beta
 
-    def metrics(self, phase_bins, active_mask=None) -> dict:
+    def metrics(self, phase_bins, active_mask=None, amplitude_codes=None) -> dict:
         """Return idealized pattern metrics for one frame.
 
         ``peak_sidelobe_db`` includes the grating-lobe regions and is
         therefore dominated by them on this lattice. ``near_sidelobe_db``
         excludes them and is the level the host algorithms can change.
+        ``amplitude_codes`` optionally applies per-element duty weighting.
         """
-        weights, active = self._weight_vector(phase_bins, active_mask)
+        weights, active = self._weight_vector(phase_bins, active_mask, amplitude_codes)
         main = self._target_amplitude(weights)
         ratio = np.abs(self._steering_matrix @ weights) / max(main, _TINY)
 
@@ -583,6 +691,7 @@ class BeamAnalyzer:
         seed: int = 0,
         null_directions=None,
         null_weight: float = 1.0,
+        amplitude_codes=None,
     ) -> tuple[np.ndarray, dict]:
         """Minimize the near-sidelobe peak by coordinate descent on phase bins.
 
@@ -595,6 +704,8 @@ class BeamAnalyzer:
             seed: shuffles the element order; same seed gives the same result.
             null_directions: optional ``(azimuth, beta)`` pairs to null.
             null_weight: penalty weight added for the deepest requested null.
+            amplitude_codes: optional per-element duty codes.  The amplitude
+                is held fixed while the phase is optimized.
         """
         if isinstance(max_sweeps, bool) or not isinstance(
             max_sweeps, (int, np.integer)
@@ -609,7 +720,8 @@ class BeamAnalyzer:
             raise ValueError("null_weight must be a finite non-negative number.")
 
         bins = validate_phase_bins(phase_bins).copy()
-        weights, active = self._weight_vector(bins, active_mask)
+        weights, active = self._weight_vector(bins, active_mask, amplitude_codes)
+        amplitudes = self._amplitude_vector(amplitude_codes)
         active_indices = np.flatnonzero(active)
         null_indices, null_notes = self._null_indices(null_directions)
         effective_null_weight = float(null_weight) if null_indices.size else 0.0
@@ -657,8 +769,8 @@ class BeamAnalyzer:
             changed = 0
             for index in rng.permutation(active_indices):
                 steering_column = self._steering_matrix[:, index]
-                old_weight = weights[index]
-                delta = candidate_phases - old_weight
+                old_phase = weights[index] / amplitudes[index]
+                delta = amplitudes[index] * (candidate_phases - old_phase)
                 candidate_fields = (
                     field[None, :] + delta[:, None] * steering_column[None, :]
                 )
@@ -672,7 +784,7 @@ class BeamAnalyzer:
                 if better:
                     field = candidate_fields[best]
                     main = complex(candidate_mains[best])
-                    weights[index] = candidate_phases[best]
+                    weights[index] = amplitudes[index] * candidate_phases[best]
                     bins[index] = best
                     current_peak = float(peaks[best])
                     current_energy = float(energies[best])
@@ -702,6 +814,7 @@ def plot_pattern(
     active_mask=None,
     *,
     title: str | None = None,
+    amplitude_codes=None,
 ) -> None:
     """Plot the ideal pattern in azimuth/beta coordinates; matplotlib optional."""
     try:
@@ -709,7 +822,7 @@ def plot_pattern(
     except ImportError as error:
         raise RuntimeError("Install matplotlib to plot beam patterns.") from error
 
-    weights, _ = analyzer._weight_vector(phase_bins, active_mask)
+    weights, _ = analyzer._weight_vector(phase_bins, active_mask, amplitude_codes)
     main = analyzer._target_amplitude(weights)
     ratio = np.abs(analyzer._steering_matrix @ weights) / max(main, _TINY)
     levels = 20.0 * np.log10(np.maximum(ratio, 1e-6))

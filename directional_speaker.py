@@ -5,6 +5,7 @@ Computes a steered phase frame and optionally applies the host-side
 directivity algorithms available through the phase-only protocol:
 
 * windowed density thinning (binary ON/OFF amplitude shaping),
+* per-element duty-cycle amplitude tapering (Hann/Gaussian, duty firmware),
 * deterministic phase dithering,
 * phase-only sidelobe optimization with optional nulls,
 * per-channel phase calibration offsets.
@@ -52,14 +53,22 @@ from cli_utils import (  # noqa: E402
 from directivity import (  # noqa: E402
     APERTURE_WINDOWS,
     BeamAnalyzer,
+    amplitude_codes_from_weights,
     apply_calibration_bins,
+    aperture_weights,
     dither_phase_bins,
+    duty_width_from_code,
     load_calibration_file,
     plot_pattern,
     thinned_mask,
 )
 from emitters import N_EMITTERS, SPACING  # noqa: E402
-from protocol import OFF_VALUE, build_frame, write_frame_to_port  # noqa: E402
+from protocol import (  # noqa: E402
+    OFF_VALUE,
+    build_amplitude_frame,
+    build_frame,
+    write_frame_to_port,
+)
 from serial_utils import print_available_ports, resolve_serial_port  # noqa: E402
 
 
@@ -85,7 +94,8 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
             "Steer the directional speaker and optionally shape its beam with "
-            "thinning, phase dithering, phase-only optimization or calibration."
+            "thinning, duty-cycle amplitude tapering, phase dithering, "
+            "phase-only optimization or calibration."
         )
     )
     parser.add_argument(
@@ -115,6 +125,21 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--seed", type=int, default=0, help="Seed for thinning and dithering."
+    )
+    parser.add_argument(
+        "--amplitude-window",
+        choices=APERTURE_WINDOWS,
+        default="none",
+        help=(
+            "Per-element duty-cycle amplitude taper (default none). "
+            "Requires the duty-weighting FPGA firmware."
+        ),
+    )
+    parser.add_argument(
+        "--amplitude-gaussian-sigma",
+        type=float,
+        default=0.35,
+        help="Gaussian sigma for --amplitude-window gaussian (default 0.35).",
     )
     parser.add_argument(
         "--dither-bins",
@@ -173,8 +198,8 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _measure(analyzer, bins, mask):
-    return analyzer.metrics(bins, active_mask=mask)
+def _measure(analyzer, bins, mask, amplitude_codes=None):
+    return analyzer.metrics(bins, active_mask=mask, amplitude_codes=amplitude_codes)
 
 
 def _format_row(name, metrics):
@@ -197,24 +222,39 @@ def print_comparison(args, analyzer):
     uniform = np.ones(N_EMITTERS, dtype=bool)
     hann = thinned_mask("hann", 0.7, seed=args.seed)
     gauss = thinned_mask("gaussian", 0.7, seed=args.seed)
+    amp_hann = amplitude_codes_from_weights(aperture_weights("hann"))
+    amp_gauss = amplitude_codes_from_weights(
+        aperture_weights("gaussian", gaussian_sigma=args.amplitude_gaussian_sigma)
+    )
 
     rows = [
-        ("uniform", baseline, uniform),
+        ("uniform", baseline, uniform, None),
         (
             "dither +/-1 bin",
             dither_phase_bins(baseline, 1, seed=args.seed),
             uniform,
+            None,
         ),
+        ("amplitude hann", baseline, uniform, amp_hann),
+        ("amplitude gaussian", baseline, uniform, amp_gauss),
     ]
     for name, mask in (("hann 70%", hann), ("gaussian 70%", gauss)):
         thinned = baseline.copy()
         thinned[~mask] = OFF_VALUE
-        rows.append((name, thinned, mask))
+        rows.append((name, thinned, mask, None))
 
     optimized, _ = analyzer.optimize(
         baseline, uniform, max_sweeps=max(args.optimize_sweeps, 3), seed=args.seed
     )
-    rows.append(("uniform + optimize", optimized, uniform))
+    rows.append(("uniform + optimize", optimized, uniform, None))
+    amp_optimized, _ = analyzer.optimize(
+        baseline,
+        uniform,
+        max_sweeps=max(args.optimize_sweeps, 3),
+        seed=args.seed,
+        amplitude_codes=amp_hann,
+    )
+    rows.append(("amplitude hann + opt", amp_optimized, uniform, amp_hann))
     for name, mask in (("hann 70% + optimize", hann), ("gaussian 70% + optimize", gauss)):
         thinned = baseline.copy()
         thinned[~mask] = OFF_VALUE
@@ -224,18 +264,18 @@ def print_comparison(args, analyzer):
             max_sweeps=max(args.optimize_sweeps, 3),
             seed=args.seed,
         )
-        rows.append((name, shaped, mask))
+        rows.append((name, shaped, mask, None))
 
     print(
         "Strategy               Active  Near SLL     Grating  Main gain\n"
         "                              (dB)          (dB)      (dB)"
     )
-    for name, bins, mask in rows:
-        print(_format_row(name, _measure(analyzer, bins, mask)))
+    for name, bins, mask, codes in rows:
+        print(_format_row(name, _measure(analyzer, bins, mask, codes)))
     print()
     print(
         "Near SLL excludes the grating-lobe regions. Grating lobes are fixed by "
-        "the\n10 mm lattice: no per-element phase or ON/OFF pattern can lower them."
+        "the\n10 mm lattice: no per-element phase or amplitude pattern can lower them."
     )
 
 
@@ -259,6 +299,16 @@ def build_shaped_bins(args, analyzer):
         bins = dither_phase_bins(
             bins, args.dither_bins, seed=args.seed, active_mask=mask
         )
+
+    amplitude_codes = None
+    if args.amplitude_window != "none":
+        amplitude_codes = amplitude_codes_from_weights(
+            aperture_weights(
+                args.amplitude_window,
+                gaussian_sigma=args.amplitude_gaussian_sigma,
+            )
+        )
+
     optimize_info = {"sweeps_run": 0, "changed_elements": 0}
     if args.optimize_sweeps:
         bins, optimize_info = analyzer.optimize(
@@ -268,8 +318,9 @@ def build_shaped_bins(args, analyzer):
             seed=args.seed,
             null_directions=args.null,
             null_weight=args.null_weight,
+            amplitude_codes=amplitude_codes,
         )
-    return bins, mask, optimize_info
+    return bins, mask, optimize_info, amplitude_codes
 
 
 def main(argv=None):
@@ -292,6 +343,8 @@ def main(argv=None):
             raise ValueError("--optimize-sweeps must be non-negative.")
         if args.null and args.optimize_sweeps == 0:
             raise ValueError("--null requires --optimize-sweeps greater than 0.")
+        if not math.isfinite(args.amplitude_gaussian_sigma) or args.amplitude_gaussian_sigma <= 0:
+            raise ValueError("--amplitude-gaussian-sigma must be greater than 0.")
     except ValueError as error:
         print(f"Invalid argument: {error}", file=sys.stderr)
         return 2
@@ -328,7 +381,7 @@ def main(argv=None):
         print(
             f"  c/spacing = {threshold:.0f} Hz. The carrier is above it, so these "
             "lobes are\n  set by the lattice and cannot be lowered by any host-side "
-            "phase/ON-OFF pattern."
+            "phase/amplitude pattern."
         )
     else:
         print(f"No grating lobe near this direction (c/spacing = {threshold:.0f} Hz).")
@@ -344,10 +397,10 @@ def main(argv=None):
         frequency_hz=args.frequency,
         sound_speed=args.sound_speed,
     )
-    shaped, mask, optimize_info = build_shaped_bins(args, analyzer)
+    shaped, mask, optimize_info, amplitude_codes = build_shaped_bins(args, analyzer)
 
     baseline_metrics = analyzer.metrics(baseline)
-    shaped_metrics = analyzer.metrics(shaped, mask)
+    shaped_metrics = analyzer.metrics(shaped, mask, amplitude_codes=amplitude_codes)
 
     print()
     print(
@@ -372,6 +425,15 @@ def main(argv=None):
         f"main gain "
         f"{shaped_metrics['main_lobe_gain_db'] - baseline_metrics['main_lobe_gain_db']:+.2f} dB"
     )
+    if amplitude_codes is not None:
+        muted = int(np.count_nonzero(amplitude_codes == OFF_VALUE))
+        active_codes = amplitude_codes[amplitude_codes != OFF_VALUE]
+        widths = sorted({duty_width_from_code(int(code)) for code in active_codes})
+        print(
+            f"Amplitude taper: {args.amplitude_window} "
+            f"({muted} zero-weight channel(s) OFF; duty widths {widths}). "
+            "Requires the duty-weighting FPGA firmware."
+        )
     if optimize_info["sweeps_run"]:
         print(
             f"Phase-only optimizer: {optimize_info['sweeps_run']} sweep(s), "
@@ -400,10 +462,12 @@ def main(argv=None):
 
     print_physical_phase_map(shaped)
     print("Physical map values are phase bins; 16 means OFF (0x10).")
+    if amplitude_codes is not None:
+        print("Amplitude codes are carried separately in the high nibble.")
 
     if args.plot:
         try:
-            plot_pattern(analyzer, shaped, mask)
+            plot_pattern(analyzer, shaped, mask, amplitude_codes=amplitude_codes)
         except RuntimeError as error:
             print(str(error), file=sys.stderr)
             return 2
@@ -417,7 +481,10 @@ def main(argv=None):
             return 2
         final_bins = apply_calibration_bins(shaped, offsets, active_mask=mask)
 
-    frame = build_frame(final_bins)
+    if amplitude_codes is None:
+        frame = build_frame(final_bins)
+    else:
+        frame = build_amplitude_frame(final_bins, amplitude_codes)
 
     if args.dry_run:
         print(f"Frame size: {len(frame)} bytes. [DRY RUN] No serial data sent.")
@@ -436,7 +503,7 @@ def main(argv=None):
     except OSError as error:
         print(f"Serial error: {error}", file=sys.stderr)
         return 2
-    print(f"Phase frame sent to {port} ({len(frame)} bytes).")
+    print(f"Frame sent to {port} ({len(frame)} bytes).")
 
 
 if __name__ == "__main__":

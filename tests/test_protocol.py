@@ -147,6 +147,66 @@ def test_write_frame_to_port_sends_once(fake_serial_factory, fake_clock):
     assert fake_serial_factory.last.closed is True
 
 
+def test_amplitude_payload_byte_layout_and_off_collision():
+    assert protocol.amplitude_payload_byte(5, 0) == 0x05
+    assert protocol.amplitude_payload_byte(5, 8) == 0x85
+    assert protocol.amplitude_payload_byte(0, 15) == 0xF0
+    # 0x10 is the OFF code, so code 1 / phase 0 is bumped to code 2.
+    assert protocol.amplitude_payload_byte(0, 1) == 0x20
+    with pytest.raises(ValueError):
+        protocol.amplitude_payload_byte(16, 0)
+    with pytest.raises(ValueError):
+        protocol.amplitude_payload_byte(0, 16)
+
+
+def test_build_amplitude_frame_layout_and_order():
+    phases = _values()
+    codes = (np.arange(N_EMITTERS, dtype=int) % 15) + 1
+    frame = protocol.build_amplitude_frame(phases, codes)
+    assert len(frame) == protocol.FRAME_SIZE
+    assert frame[0] == protocol.HEADER and frame[-1] == protocol.FOOTER
+
+    order = np.asarray(EMITTERS_ORDER)
+    expected = bytearray()
+    for phase, code in zip(phases[order], codes[order]):
+        expected.append(protocol.amplitude_payload_byte(int(phase), int(code)))
+    assert frame[1:-1] == bytes(expected)
+
+
+def test_build_amplitude_frame_off_and_legacy_code():
+    phases = np.zeros(N_EMITTERS, dtype=int)
+    codes = np.zeros(N_EMITTERS, dtype=int)
+    assert protocol.build_amplitude_frame(phases, codes)[1:-1] == bytes(N_EMITTERS)
+
+    phases[0] = protocol.OFF_VALUE
+    codes[0] = 15
+    frame = protocol.build_amplitude_frame(phases, codes)
+    assert frame[1 + EMITTERS_ORDER.index(0)] == protocol.OFF_VALUE
+
+    codes[1] = protocol.OFF_VALUE  # zero weight mutes even with a phase bin
+    frame = protocol.build_amplitude_frame(phases, codes)
+    assert frame[1 + EMITTERS_ORDER.index(1)] == protocol.OFF_VALUE
+
+
+def test_build_amplitude_frame_validates_inputs():
+    phases = np.zeros(N_EMITTERS, dtype=int)
+    codes = np.zeros(N_EMITTERS, dtype=int)
+    with pytest.raises(ValueError):
+        protocol.build_amplitude_frame(phases[:-1], codes)
+    with pytest.raises(ValueError):
+        protocol.build_amplitude_frame(phases, codes[:-1])
+    with pytest.raises(ValueError):
+        protocol.build_amplitude_frame(phases.astype(float), codes)
+    bad_codes = codes.copy()
+    bad_codes[0] = 17
+    with pytest.raises(ValueError):
+        protocol.build_amplitude_frame(phases, bad_codes)
+    off = phases.copy()
+    off[0] = protocol.OFF_VALUE
+    with pytest.raises(ValueError):
+        protocol.build_amplitude_frame(off, codes, allow_off=False)
+
+
 def test_wire_time_and_max_toggle_frequency():
     expected_wire = 258 * 10 / 38400
     assert protocol.wire_time_s() == pytest.approx(expected_wire)

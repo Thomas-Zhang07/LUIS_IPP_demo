@@ -27,6 +27,12 @@ OFF_VALUE = 0x10
 FRAME_SIZE = N_EMITTERS + 2
 BITS_PER_BYTE = 10  # 8N1: start + 8 data + stop
 
+# Amplitude-capable frames use the high nibble of each payload byte.
+# Code 0 keeps the legacy full-scale pulse; codes 1..15 select a narrower,
+# centred pulse.  See the "Amplitude weighting" section of the README.
+AMPLITUDE_CODES = 16
+MAX_AMPLITUDE_CODE = AMPLITUDE_CODES - 1
+
 
 def validate_transmit_order(transmit_order=None) -> np.ndarray:
     """Return the hardware transmit order, validating it is a permutation."""
@@ -74,6 +80,87 @@ def build_frame(
     order = validate_transmit_order(transmit_order)
     payload = values[order].astype(np.uint8).tobytes()
     return bytes([HEADER]) + payload + bytes([FOOTER])
+
+
+def amplitude_payload_byte(phase_bin: int, amplitude_code: int) -> int:
+    """Return the wire byte for one phase bin and amplitude code.
+
+    The payload byte is ``amplitude_code << 4 | phase_bin``.  ``0x10`` is
+    reserved for OFF, so the single colliding combination (amplitude code 1,
+    phase 0) is bumped to code 2; both select the same one-step pulse width
+    in the firmware.  A code of :data:`OFF_VALUE` mutes the channel.
+    """
+    if isinstance(phase_bin, bool) or not isinstance(phase_bin, (int, np.integer)):
+        raise ValueError("phase_bin must be an integer.")
+    if isinstance(amplitude_code, bool) or not isinstance(
+        amplitude_code, (int, np.integer)
+    ):
+        raise ValueError("amplitude_code must be an integer.")
+    phase_bin = int(phase_bin)
+    amplitude_code = int(amplitude_code)
+    if not 0 <= phase_bin <= PHASE_BINS - 1:
+        raise ValueError(f"phase_bin must be between 0 and {PHASE_BINS - 1}.")
+    if not 0 <= amplitude_code <= MAX_AMPLITUDE_CODE:
+        raise ValueError(
+            f"amplitude_code must be between 0 and {MAX_AMPLITUDE_CODE}."
+        )
+    if amplitude_code == 1 and phase_bin == 0:
+        amplitude_code = 2
+    return (amplitude_code << 4) | phase_bin
+
+
+def build_amplitude_frame(
+    phase_values,
+    amplitude_codes,
+    *,
+    transmit_order=None,
+    allow_off: bool = True,
+) -> bytes:
+    """Build a frame carrying both phase bins and per-channel amplitude.
+
+    Args:
+        phase_values: 256 integer phase bins (and OFF if ``allow_off``).
+        amplitude_codes: 256 integer codes ``0..15`` (0 = legacy full
+            scale) or :data:`OFF_VALUE` to mute the channel.
+        transmit_order: permutation mapping wire position -> logical index.
+        allow_off: when False, OFF phase bins are rejected.
+
+    The firmware emits a centred pulse whose width is selected by the code,
+    so the fundamental amplitude follows ``sin(pi * width / 16)``.  Use
+    :func:`directivity.amplitude_codes_from_weights` to turn physical
+    weights into codes.  The OFF byte mutes the channel regardless of its
+    amplitude code.
+    """
+    phases = np.asarray(phase_values)
+    codes = np.asarray(amplitude_codes)
+    if phases.shape != (N_EMITTERS,):
+        raise ValueError(f"Expected exactly {N_EMITTERS} phase values.")
+    if codes.shape != (N_EMITTERS,):
+        raise ValueError(f"Expected exactly {N_EMITTERS} amplitude codes.")
+    if not np.issubdtype(phases.dtype, np.integer):
+        raise ValueError("Phase bins must be integers.")
+    if not np.issubdtype(codes.dtype, np.integer):
+        raise ValueError("Amplitude codes must be integers.")
+
+    upper = OFF_VALUE if allow_off else PHASE_BINS - 1
+    if np.any((phases < 0) | (phases > upper)):
+        raise ValueError(f"Phase bins must be between 0 and {upper}.")
+    if np.any((codes < 0) | (codes > OFF_VALUE)):
+        raise ValueError(
+            f"Amplitude codes must be between 0 and {MAX_AMPLITUDE_CODE} "
+            f"(or {OFF_VALUE} for OFF)."
+        )
+
+    order = validate_transmit_order(transmit_order)
+    payload = bytearray()
+    for phase, code in zip(phases[order], codes[order]):
+        phase = int(phase)
+        code = int(code)
+        if phase == OFF_VALUE or code == OFF_VALUE:
+            payload.append(OFF_VALUE)
+        else:
+            payload.append(amplitude_payload_byte(phase, code))
+    return bytes([HEADER]) + bytes(payload) + bytes([FOOTER])
 
 
 def build_uniform_frame(value: int) -> bytes:

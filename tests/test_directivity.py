@@ -57,6 +57,80 @@ def test_aperture_weights_shapes_and_taper():
         directivity.aperture_weights("triangle")
 
 
+def test_amplitude_code_mapping_matches_firmware():
+    assert directivity.duty_width_from_code(0) == 8
+    assert directivity.duty_width_from_code(15) == 8
+    assert [directivity.duty_width_from_code(c) for c in range(1, 15)] == [
+        1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7
+    ]
+    assert directivity.amplitude_from_code(15) == pytest.approx(1.0)
+    assert directivity.amplitude_from_code(2) == pytest.approx(
+        np.sin(np.pi / 16)
+    )
+    with pytest.raises(ValueError):
+        directivity.duty_width_from_code(16)
+
+
+def test_amplitude_code_for_weight_round_trip():
+    assert directivity.amplitude_code_for_weight(0.0) == OFF_VALUE
+    assert directivity.amplitude_code_for_weight(-0.1) == OFF_VALUE
+    code = directivity.amplitude_code_for_weight(1.0)
+    assert directivity.duty_width_from_code(code) == 8
+    # Every positive weight gets a code whose width is the nearest one.
+    for weight in (0.2, 0.4, 0.6, 0.8):
+        code = directivity.amplitude_code_for_weight(weight)
+        assert 1 <= code <= 15
+        assert directivity.amplitude_from_code(code) > 0.0
+    with pytest.raises(ValueError):
+        directivity.amplitude_code_for_weight(1.5)
+
+
+def test_amplitude_codes_from_weights_validates_and_maps_zero_to_off():
+    weights = directivity.aperture_weights("hann")
+    codes = directivity.amplitude_codes_from_weights(weights)
+    assert codes.shape == (N_EMITTERS,)
+    assert np.all((codes >= 0) & (codes <= OFF_VALUE))
+    assert np.any(codes == OFF_VALUE)
+    with pytest.raises(ValueError):
+        directivity.amplitude_codes_from_weights(np.zeros(N_EMITTERS - 1))
+    bad = np.zeros(N_EMITTERS)
+    bad[0] = 1.5
+    with pytest.raises(ValueError):
+        directivity.amplitude_codes_from_weights(bad)
+
+
+def test_metrics_with_amplitude_taper_lowers_sidelobes_but_not_grating():
+    analyzer = directivity.BeamAnalyzer(0.0, 0.0, samples=61)
+    bins = np.zeros(N_EMITTERS, dtype=int)
+    codes = directivity.amplitude_codes_from_weights(
+        directivity.aperture_weights("hann")
+    )
+    flat = analyzer.metrics(bins)
+    tapered = analyzer.metrics(bins, amplitude_codes=codes)
+    assert tapered["near_sidelobe_db"] < flat["near_sidelobe_db"] - 2.0
+    assert tapered["main_lobe_gain_db"] < flat["main_lobe_gain_db"] - 2.0
+    # Per-element weights scale the main and grating lobes equally.
+    assert tapered["grating_lobe_db"] == pytest.approx(
+        flat["grating_lobe_db"], abs=0.5
+    )
+
+
+def test_optimizer_accepts_fixed_amplitude_codes():
+    analyzer = directivity.BeamAnalyzer(0.0, 0.0, samples=41)
+    baseline = acoustics.steering_phase_bins(0.0, 0.0)
+    codes = directivity.amplitude_codes_from_weights(
+        directivity.aperture_weights("gaussian")
+    )
+    before = analyzer.metrics(baseline, amplitude_codes=codes)["near_sidelobe_db"]
+    optimized, info = analyzer.optimize(
+        baseline, max_sweeps=2, seed=0, amplitude_codes=codes
+    )
+    after = analyzer.metrics(optimized, amplitude_codes=codes)["near_sidelobe_db"]
+    assert info["sweeps_run"] >= 1
+    assert after <= before + 1e-9
+    assert np.all(optimized <= 15)
+
+
 def test_thinned_mask_is_deterministic_and_exact():
     first = directivity.thinned_mask("hann", 0.7, seed=5)
     second = directivity.thinned_mask("hann", 0.7, seed=5)
