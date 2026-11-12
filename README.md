@@ -276,13 +276,17 @@ acoustics.py                   physics: wavelength, phases, quantization
 cli_utils.py                   shared CLI and display helpers
 trajectory.py                  timed streaming, toggles, rotation
 array_factor.py                theoretical analysis and plotting
-directivity.py                 thinning, dithering, phase-only optimization, calibration
+directivity.py                 thinning, duty amplitude, dithering, phase optimization, calibration
 serial_utils.py                port discovery and selection
 single_point_*.py              focus, vortex, line, circle demos
 transducer_*.py                all-on, ON/OFF, steering demos
 directional_speaker.py         steering + beam shaping + comparison
 onoff.py, bit_pattern_onoff.py ON/OFF and pattern generators
 mode_control.py                mode command + phase frame
+wire_probe.py                  wire-address probe for oscilloscope tests
+table_test.py                  phase-table checks
+table_fingerprint.py           phase-table fingerprint tool
+orbit_test.py                  orbit diagnostic
 tests/                         hardware-free pytest suite
 ```
 
