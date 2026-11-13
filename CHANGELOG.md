@@ -19,6 +19,11 @@ semantic versioning once releases are tagged.
   `--dry-run` that builds both frames without serial ports.
 - `tests/test_dual_board.py`: geometry, frame routing, offset nulling, the
   split-lobe physics, taper codes, parallel link writes, and CLI dry-run.
+- Side-leak analysis for the two-board model: optional circular-piston
+  directivity (10 mm default), a `far_sidelobe_db` metric for the region above
+  `--side-start`, and a far-region optimizer with a `--near-weight` guard.  The
+  CLI reports both the above-60 peak and the overall peak so the trade against
+  main-beam gain is visible.
 - Shared `protocol.py`: validated frame builders, uniform ON/OFF frames,
   wire-time calculations, a consistent serial context manager, and
   partial-write-checked sends.

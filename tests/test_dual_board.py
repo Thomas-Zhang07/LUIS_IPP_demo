@@ -68,7 +68,9 @@ def test_payload_phase_order_matches_emitters_order():
 
 def test_half_pitch_offset_nulls_the_exact_grating_direction():
     shifted = dual_board.BoardGeometry(gap_m=0.0)
-    analyzer = dual_board.CombinedBeamAnalyzer(shifted.positions(), samples=121)
+    analyzer = dual_board.CombinedBeamAnalyzer(
+        shifted.positions(), samples=121, element_diameter_m=None
+    )
     phases = np.zeros(512, dtype=int)
     level = analyzer.level_at(phases, 0.0, dual_board.GRATING_BETA_DEG)
     assert level < -20.0
@@ -77,7 +79,7 @@ def test_half_pitch_offset_nulls_the_exact_grating_direction():
         gap_m=0.0, offset_x_m=0.0, offset_y_m=0.0
     )
     reference = dual_board.CombinedBeamAnalyzer(
-        unshifted.positions(), samples=121
+        unshifted.positions(), samples=121, element_diameter_m=None
     )
     reference_level = reference.level_at(phases, 0.0, dual_board.GRATING_BETA_DEG)
     assert reference_level > -6.0
@@ -86,7 +88,9 @@ def test_half_pitch_offset_nulls_the_exact_grating_direction():
 def test_offset_leaves_split_lobes_beside_the_null():
     """Document the physics: the null is narrow, the lobe energy splits."""
     geometry = dual_board.BoardGeometry(gap_m=0.0)
-    analyzer = dual_board.CombinedBeamAnalyzer(geometry.positions(), samples=121)
+    analyzer = dual_board.CombinedBeamAnalyzer(
+        geometry.positions(), samples=121, element_diameter_m=None
+    )
     phases = np.zeros(512, dtype=int)
     # The exact grating direction is nulled, but a few degrees away the two
     # board halves no longer cancel.
@@ -239,3 +243,34 @@ def test_cli_dry_run_reports_trim(capsys):
     assert cli.main(["--dry-run", "--samples", "21", "--trim", "127"]) == 0
     output = capsys.readouterr().out
     assert "trim command: e0 5a 7f" in output
+
+
+def test_piston_directivity_lowers_the_far_lobes():
+    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    isotropic = dual_board.CombinedBeamAnalyzer(
+        geometry.positions(), samples=121, element_diameter_m=None
+    )
+    piston = dual_board.CombinedBeamAnalyzer(
+        geometry.positions(), samples=121, element_diameter_m=0.010
+    )
+    phases = np.zeros(512, dtype=int)
+    iso = isotropic.metrics(phases)
+    real = piston.metrics(phases)
+    assert iso["far_sidelobe_db"] > -6.0
+    assert real["far_sidelobe_db"] < iso["far_sidelobe_db"] - 10.0
+    assert piston.level_at(phases, 0.0, dual_board.GRATING_BETA_DEG) < -20.0
+
+
+def test_far_region_optimizer_trades_near_sidelobes():
+    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    analyzer = dual_board.CombinedBeamAnalyzer(geometry.positions(), samples=61)
+    phases = np.zeros(512, dtype=int)
+    before = analyzer.metrics(phases)
+    optimized, info = analyzer.optimize(
+        phases, max_sweeps=1, seed=1, side_start_deg=60.0, near_weight=0.5
+    )
+    after = analyzer.metrics(optimized)
+    assert info["changed_elements"] > 0
+    assert after["far_sidelobe_db"] < before["far_sidelobe_db"] - 0.5
+    # The near guard keeps the main beam from collapsing.
+    assert after["main_lobe_gain_db"] > -10.0

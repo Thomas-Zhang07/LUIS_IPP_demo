@@ -229,23 +229,39 @@ python dual_directional_speaker.py --dry-run --focus-z 1.5
 Geometry flags: `--gap`, `--offset-x`, `--offset-y` (meters, defaults 0 mm,
 5 mm, 5 mm; raise `--gap` to the measured clear gap).  Shaping flags:
 `--amplitude-window {none,hann,gaussian,blackman,tukey}`, `--optimize-sweeps`,
-`--null AZ:BETA`, `--samples`.  Fine alignment: `--trim N` sends the
-secondary's `0xE0 0x5A N` command (20 ns = 0.288° per step, default 127), and
-`--trim-sweep START:STOP:STEP --trim-dwell S` steps it while you watch a
-meter.  This needs the secondary firmware with `SyncTrim`; the command is
-only recognised between frames.
+`--null AZ:BETA`, `--samples`.  Side-leak flags: `--side-start DEG`
+(default 60; the region to report and optimize, 0 = all sidelobes),
+`--near-weight` (default 0.5; keeps the optimizer from dumping energy just
+outside the main lobe), `--element-diameter-mm` (default 10; 0 = isotropic).
+
+Fine alignment: `--trim N` sends the secondary's `0xE0 0x5A N` command
+(20 ns = 0.288° per step, default 127), and `--trim-sweep START:STOP:STEP
+--trim-dwell S` steps it while you watch a meter.  This needs the secondary
+firmware with `SyncTrim`; the command is only recognised between frames.
 
 **What the offset does and does not do.**  The 5 mm half-pitch shift makes the
 two boards' contributions cancel *exactly at* the 59.04° grating direction
-(`grating_lobe_db`), and the model here reports that null.  It does **not**
-remove the grating lobe: because each board is a 150 mm aperture, the relative
-phase changes rapidly away from that direction, so the lobe splits into two
-peaks a couple of degrees either side of the null.  With isotropic elements
-those peaks are near 0 dB; a 10 mm piston's directivity lowers them in
-practice.  `peak_sidelobe_db` (which includes the whole visible hemisphere)
-is the honest "side leak" number, not the 59° null depth.  Eliminating the
-grating lobe itself requires a different carrier (≤34.3 kHz), a ≤4.3 mm
-lattice, or an aperiodic layout.
+(`grating_lobe_db`), and the model reports that null.  It does **not** remove
+the grating lobe: each board is a 150 mm aperture, so the relative phase
+changes rapidly away from that direction and the lobe splits into two peaks a
+couple of degrees either side of the null.
+
+The model now includes the **10 mm piston directivity** by default, which is
+what makes the above-60 region realistic.  Broadside, uniform phases, 512
+elements:
+
+| Model | Side leak above 60° | Overall peak sidelobe | Main gain |
+|---|---|---|---|
+| isotropic (`--element-diameter-mm 0`) | −3.6 dB | −2.8 dB | 0 dB |
+| 10 mm piston (default) | **−18.9 dB** | −14.0 dB | 0 dB |
+| piston + 3 far-region sweeps | **−20.9 dB** | −18.1 dB | −5.4 dB |
+
+So the piston directivity does most of the work; the phase-only optimizer can
+add a couple of dB above 60° at the cost of main-beam gain.  Use
+`far_sidelobe_db` as the side-leak metric and `--side-start` to move the
+boundary; `peak_sidelobe_db` covers the whole hemisphere, and the exact 59°
+null alone is misleading.  Eliminating the grating lobe itself still requires
+a different carrier (≤34.3 kHz), a ≤4.3 mm lattice, or an aperiodic layout.
 
 ### Duty-cycle amplitude weighting
 

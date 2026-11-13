@@ -40,7 +40,7 @@ import dual_board  # noqa: E402
 import protocol  # noqa: E402
 from serial_utils import print_available_ports  # noqa: E402
 
-REPORT_BETAS = (0.0, 10.0, 20.0, 40.0, 50.0, 59.0, 65.0, 70.0, 90.0)
+REPORT_BETAS = (0.0, 10.0, 20.0, 40.0, 50.0, 59.0, 61.0, 65.0, 70.0, 90.0)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -91,6 +91,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Extra null direction; repeatable")
     parser.add_argument("--null-weight", type=float, default=1.0)
 
+    parser.add_argument("--side-start", type=float, default=60.0, metavar="DEG",
+                        help="Start of the side-leak region to report and optimize (default 60; 0 = all sidelobes)")
+    parser.add_argument("--element-diameter-mm", type=float, default=10.0,
+                        help="Transducer piston diameter for directivity (0 = isotropic, default 10)")
+    parser.add_argument("--near-weight", type=float, default=0.5,
+                        help="Penalty on the below---side-start sidelobes while optimizing (default 0.5)")
     parser.add_argument("--trim", type=int, default=None, metavar="N",
                         help="Secondary fine trim 0..255 (20 ns/step; default 127)")
     parser.add_argument("--trim-sweep", default=None, metavar="START:STOP:STEP",
@@ -149,11 +155,17 @@ def build_plan(args):
     codes = dual_board.amplitude_codes_from_weights(weights)
     codes_a, codes_b = dual_board.split_by_board(codes)
 
+    if args.side_start < 0.0 or args.side_start > 90.0:
+        raise ValueError("--side-start must be 0..90.")
     analyzer = dual_board.CombinedBeamAnalyzer(
         geometry.positions(),
         azimuth_degrees=args.alpha,
         off_axis_degrees=args.beta,
         samples=args.samples,
+        element_diameter_m=(
+            None if args.element_diameter_mm <= 0 else args.element_diameter_mm / 1000.0
+        ),
+        side_start_deg=args.side_start if args.side_start > 0 else 60.0,
     )
     phases = np.concatenate((bins_a, bins_b))
     if args.optimize_sweeps:
@@ -164,6 +176,8 @@ def build_plan(args):
             seed=args.seed,
             null_directions=parse_nulls(args.null),
             null_weight=args.null_weight,
+            side_start_deg=args.side_start if args.side_start > 0 else None,
+            near_weight=args.near_weight,
         )
         bins_a, bins_b = dual_board.split_by_board(phases)
     else:
@@ -201,10 +215,17 @@ def report(geometry, analyzer, phases, codes, info, args) -> None:
     )
     width = analyzer.half_power_width_deg(phases, codes)
     print(f"main lobe -3 dB width (beta cut): {width:.2f} deg")
+    print(f"main-lobe gain: {metrics['main_lobe_gain_db']:.1f} dB")
     print(
         f"peak sidelobe: {metrics['peak_sidelobe_db']:.1f} dB at "
         f"az {metrics['peak_sidelobe_azimuth_deg']:.0f}, "
         f"beta {metrics['peak_sidelobe_beta_deg']:.1f}"
+    )
+    print(
+        f"side leak above {metrics['side_start_deg']:g} deg: "
+        f"{metrics['far_sidelobe_db']:.1f} dB at "
+        f"az {metrics['far_sidelobe_azimuth_deg']:.0f}, "
+        f"beta {metrics['far_sidelobe_beta_deg']:.1f}"
     )
     print("levels (az = steering azimuth):")
     for beta in REPORT_BETAS:
@@ -218,7 +239,8 @@ def report(geometry, analyzer, phases, codes, info, args) -> None:
     print(
         "note: the half-pitch offset nulls the exact 59 deg direction; the "
         "remaining grating energy appears as a split lobe on either side. "
-        "peak_sidelobe_db is the honest no-leak number."
+        "far_sidelobe_db is the peak above --side-start; the optimizer "
+        "targets that region, so watch main_lobe_gain_db and the near peak."
     )
     print(
         "ideal isotropic model, not a measurement; element directivity and "

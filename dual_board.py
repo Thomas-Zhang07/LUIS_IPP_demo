@@ -49,6 +49,34 @@ GRATING_BETA_DEG = math.degrees(
 )
 
 
+def _bessel_j1(x):
+    """Bessel J1 for a numpy array (power series, no scipy dependency)."""
+    x = np.asarray(x, dtype=float)
+    term = x / 2.0
+    total = term.copy()
+    for m in range(1, 40):
+        term = term * (-(x * x) / 4.0) / (m * (m + 1))
+        total = total + term
+        if np.max(np.abs(term)) < 1e-14:
+            break
+    return total
+
+
+def piston_directivity(beta_degrees, diameter_m, wavelength_m):
+    """Pressure directivity of a circular piston in a baffle.
+
+    Returns ``2*J1(x)/x`` with ``x = pi*diameter*sin(beta)/wavelength``,
+    normalised to 1 on axis.  This is the same for every transducer, so it
+    only scales each observation direction, not the per-element weights.
+    """
+    beta = np.asarray(beta_degrees, dtype=float)
+    x = (math.pi * float(diameter_m) / float(wavelength_m)) * np.sin(
+        np.radians(beta)
+    )
+    x = np.maximum(x, 1e-12)
+    return 2.0 * _bessel_j1(x) / x
+
+
 @dataclass(frozen=True)
 class BoardGeometry:
     """Positions of the two boards in one coordinate frame (meters).
@@ -262,7 +290,7 @@ def amplitude_window_weights(
     wy = _window_1d(
         uy, window, sigma=gaussian_sigma, tukey_alpha=tukey_alpha
     )
-    return wx * wy
+    return np.clip(wx * wy, 0.0, 1.0)
 
 
 def amplitude_codes_from_weights(weights) -> np.ndarray:
@@ -480,6 +508,8 @@ class CombinedBeamAnalyzer:
         sound_speed: float = acoustics.DEFAULT_SOUND_SPEED_MPS,
         samples: int = 121,
         main_lobe_safety_factor: float = 1.5,
+        element_diameter_m: float | None = 0.010,
+        side_start_deg: float = 60.0,
     ):
         acoustics.validate_acoustic_params(frequency_hz, sound_speed)
         acoustics.validate_steering_angles(azimuth_degrees, off_axis_degrees)
@@ -504,6 +534,12 @@ class CombinedBeamAnalyzer:
         self.direction = acoustics.direction_from_angles(
             azimuth_degrees, off_axis_degrees
         )
+        if element_diameter_m is not None and element_diameter_m <= 0.0:
+            raise ValueError("element_diameter_m must be positive or None.")
+        self.element_diameter_m = element_diameter_m
+        if not 0.0 < float(side_start_deg) <= 90.0:
+            raise ValueError("side_start_deg must be in (0, 90].")
+        self.side_start_deg = float(side_start_deg)
 
         self._center = self.positions.mean(axis=0)
         self._centered = self.positions - self._center
@@ -512,6 +548,15 @@ class CombinedBeamAnalyzer:
         self._target_vector = np.exp(
             1j * wave_number * (self._centered @ self.direction)
         )
+        if self.element_diameter_m is not None:
+            beta_target = math.degrees(
+                math.acos(max(-1.0, min(1.0, self.direction[2])))
+            )
+            self._target_vector = self._target_vector * float(
+                piston_directivity(
+                    beta_target, self.element_diameter_m, self.wavelength
+                )
+            )
 
         samples = int(samples)
         u_values = np.linspace(-1.0, 1.0, samples)
@@ -525,6 +570,13 @@ class CombinedBeamAnalyzer:
         self._steering_matrix = np.exp(
             1j * wave_number * (self._centered @ directions.T)
         ).T
+        if self.element_diameter_m is not None:
+            beta_grid = np.degrees(
+                np.arccos(np.clip(directions[:, 2], -1.0, 1.0))
+            )
+            self._steering_matrix = self._steering_matrix * piston_directivity(
+                beta_grid, self.element_diameter_m, self.wavelength
+            )[:, None]
 
         aperture_x = float(np.ptp(self.positions[:, 0]))
         aperture_y = float(np.ptp(self.positions[:, 1]))
@@ -559,6 +611,14 @@ class CombinedBeamAnalyzer:
         if not np.any(~self._main_mask):
             raise ValueError("Direction grid contains only main-lobe points.")
         self._sidelobe_mask = ~self._main_mask
+        beta_all = np.degrees(
+            np.arccos(np.clip(directions[:, 2], -1.0, 1.0))
+        )
+        self._far_mask = (~self._main_mask) & (
+            beta_all >= self.side_start_deg - 1e-12
+        )
+        if not np.any(self._far_mask):
+            self._far_mask = self._sidelobe_mask
 
     # -- weights -------------------------------------------------------
     def _weights(self, phase_bins, amplitude_codes=None, active_mask=None):
@@ -613,6 +673,12 @@ class CombinedBeamAnalyzer:
             azimuth_degrees, off_axis_degrees
         )
         vector = np.exp(1j * self._k * (self._centered @ direction))
+        if self.element_diameter_m is not None:
+            vector = vector * float(
+                piston_directivity(
+                    off_axis_degrees, self.element_diameter_m, self.wavelength
+                )
+            )
         return complex(vector @ weights)
 
     # -- metrics -------------------------------------------------------
@@ -629,6 +695,17 @@ class CombinedBeamAnalyzer:
         direction = self._dirs[peak_index]
         peak_azimuth = math.degrees(math.atan2(direction[1], direction[0]))
         peak_beta = math.degrees(math.acos(max(-1.0, min(1.0, direction[2]))))
+
+        far_masked = np.where(self._far_mask, ratio, -np.inf)
+        far_index = int(np.argmax(far_masked))
+        far_peak = float(far_masked[far_index])
+        far_direction = self._dirs[far_index]
+        far_azimuth = math.degrees(
+            math.atan2(far_direction[1], far_direction[0])
+        )
+        far_beta = math.degrees(
+            math.acos(max(-1.0, min(1.0, far_direction[2])))
+        )
 
         grating_levels = {}
         for azimuth in (0.0, 90.0, 180.0, 270.0):
@@ -648,6 +725,10 @@ class CombinedBeamAnalyzer:
             "peak_sidelobe_db": 20.0 * math.log10(max(peak, 1e-12)),
             "peak_sidelobe_azimuth_deg": peak_azimuth,
             "peak_sidelobe_beta_deg": peak_beta,
+            "far_sidelobe_db": 20.0 * math.log10(max(far_peak, 1e-12)),
+            "far_sidelobe_azimuth_deg": far_azimuth,
+            "far_sidelobe_beta_deg": far_beta,
+            "side_start_deg": self.side_start_deg,
             "grating_lobe_db": grating_levels,
             "main_lobe_exclusion_deg": self.main_lobe_exclusion_deg,
         }
@@ -671,6 +752,12 @@ class CombinedBeamAnalyzer:
         def amplitude_at(azimuth, beta):
             direction = acoustics.direction_from_angles(azimuth, beta)
             vector = np.exp(1j * self._k * (self._centered @ direction))
+            if self.element_diameter_m is not None:
+                vector = vector * float(
+                    piston_directivity(
+                        beta, self.element_diameter_m, self.wavelength
+                    )
+                )
             return abs(vector @ weights) / main
 
         target_azimuth = self.azimuth_degrees
@@ -706,6 +793,8 @@ class CombinedBeamAnalyzer:
         seed: int = 0,
         null_directions=None,
         null_weight: float = 1.0,
+        side_start_deg: float | None = None,
+        near_weight: float = 0.5,
     ):
         """Coordinate descent on phase bins, peak sidelobe objective.
 
@@ -743,7 +832,27 @@ class CombinedBeamAnalyzer:
 
         field = self._steering_matrix @ weights
         main = complex(self._target_vector @ weights)
-        side_indices = np.flatnonzero(self._sidelobe_mask)
+        if not math.isfinite(near_weight) or near_weight < 0.0:
+            raise ValueError("near_weight must be finite and non-negative.")
+        beta_all = np.degrees(
+            np.arccos(np.clip(self._dirs[:, 2], -1.0, 1.0))
+        )
+        if side_start_deg is None:
+            side_mask = self._sidelobe_mask
+            near_mask = np.zeros_like(side_mask)
+        else:
+            if not 0.0 < float(side_start_deg) <= 90.0:
+                raise ValueError("side_start_deg must be in (0, 90].")
+            side_mask = (~self._main_mask) & (
+                beta_all >= float(side_start_deg) - 1e-12
+            )
+            near_mask = (~self._main_mask) & (
+                beta_all < float(side_start_deg) - 1e-12
+            )
+            if not np.any(side_mask):
+                side_mask = self._sidelobe_mask
+        side_indices = np.flatnonzero(side_mask)
+        near_indices = np.flatnonzero(near_mask)
         candidate_phases = np.exp(
             1j * np.arange(PHASE_BINS, dtype=float) * TWO_PI / PHASE_BINS
         )
@@ -753,6 +862,9 @@ class CombinedBeamAnalyzer:
             ratios = np.abs(fields[:, side_indices]) / denominator
             peak = ratios.max(axis=1)
             energy = np.mean(ratios * ratios, axis=1)
+            if near_indices.size and near_weight:
+                near_ratios = np.abs(fields[:, near_indices]) / denominator
+                peak = peak + float(near_weight) * near_ratios.max(axis=1)
             if weight_null and null_indices.size:
                 null_ratios = np.abs(fields[:, null_indices]) / denominator
                 peak = peak + weight_null * null_ratios.max(axis=1)
