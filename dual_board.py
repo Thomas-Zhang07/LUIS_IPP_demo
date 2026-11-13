@@ -29,9 +29,16 @@ import emitters
 import protocol
 from directivity import amplitude_code_for_weight, amplitude_from_code
 
-DEFAULT_GAP_M = 0.000
-DEFAULT_OFFSET_X_M = 0.005
-DEFAULT_OFFSET_Y_M = 0.005
+# Measured from the supplied Gerbers/pick-place data (see
+# mounting_mechanics/investigation/measurements.json).
+DEFAULT_SEAM_M = 0.03675        # element centre to element centre across boards
+DEFAULT_OFFSET_Y_M = 0.00525    # half of the 10.5 mm lattice
+PCB_MARGIN_LEFT_M = 0.0137060
+PCB_MARGIN_RIGHT_M = 0.0138861
+PCB_MARGIN_BOTTOM_M = 0.0054960
+PCB_MARGIN_TOP_M = 0.0054060
+# The butted boards cannot have a seam smaller than the two facing margins.
+MIN_SEAM_M = PCB_MARGIN_RIGHT_M + PCB_MARGIN_LEFT_M
 
 PRIMARY_SELECT_BYTE = 0xC0
 SECONDARY_SELECT_BYTE = 0xC1
@@ -40,7 +47,7 @@ PHASE_BINS = protocol.PHASE_BINS
 OFF_VALUE = protocol.OFF_VALUE
 TWO_PI = 2.0 * math.pi
 
-# Nominal broadside grating-lobe angle of the 10 mm lattice at 40 kHz.
+# Nominal broadside grating-lobe angle of the 10.5 mm lattice at 40 kHz.
 GRATING_BETA_DEG = math.degrees(
     math.asin(
         (acoustics.DEFAULT_SOUND_SPEED_MPS / acoustics.DEFAULT_FREQUENCY_HZ)
@@ -82,16 +89,17 @@ class BoardGeometry:
     """Positions of the two boards in one coordinate frame (meters).
 
     Args:
-        gap_m: clear extra gap between the two PCB edges (element-center
-            distance across the seam minus the 5 mm offset).
-        offset_x_m: board B shift along x relative to the nominal lattice.
-        offset_y_m: board B shift along y.
-        spacing_m: lattice pitch, 10 mm on this hardware.
+        seam_m: element-centre distance between board A's rightmost element
+            and board B's leftmost element.  The measured boards have a
+            27.5921 mm minimum (butted) and the half-pitch-compatible
+            no-trim choice is 36.750 mm.
+        offset_y_m: board B shift along y; half of the 10.5 mm lattice
+            (5.25 mm) interleaves the rows.
+        spacing_m: lattice pitch, 10.5 mm on this hardware.
         side: emitters per side, 16.
     """
 
-    gap_m: float = DEFAULT_GAP_M
-    offset_x_m: float = DEFAULT_OFFSET_X_M
+    seam_m: float = DEFAULT_SEAM_M
     offset_y_m: float = DEFAULT_OFFSET_Y_M
     spacing_m: float = emitters.SPACING
     side: int = emitters.N_SIDE
@@ -100,8 +108,7 @@ class BoardGeometry:
 
     def __post_init__(self) -> None:
         for value, label in (
-            (self.gap_m, "gap"),
-            (self.offset_x_m, "offset_x"),
+            (self.seam_m, "seam"),
             (self.offset_y_m, "offset_y"),
             (self.spacing_m, "spacing"),
         ):
@@ -111,8 +118,8 @@ class BoardGeometry:
                 raise ValueError(f"{label} must be a number.")
             if not math.isfinite(float(value)):
                 raise ValueError(f"{label} must be finite.")
-        if self.gap_m < 0.0:
-            raise ValueError("gap must be non-negative.")
+        if self.seam_m < 0.0:
+            raise ValueError("seam must be non-negative.")
         if self.spacing_m <= 0.0:
             raise ValueError("spacing must be positive.")
         if self.side < 1:
@@ -127,13 +134,16 @@ class BoardGeometry:
     def board_b_origin(self) -> np.ndarray:
         return np.array(
             [
-                (self.side - 1) * self.spacing_m
-                + self.gap_m
-                + self.offset_x_m,
+                (self.side - 1) * self.spacing_m + self.seam_m,
                 self.offset_y_m,
                 0.0,
             ]
         )
+
+    @property
+    def edge_gap_m(self) -> float:
+        """Clear PCB edge-to-edge gap for the acoustic seam (may be negative)."""
+        return self.seam_m - MIN_SEAM_M
 
     def _grid(self, origin: np.ndarray) -> np.ndarray:
         positions = np.zeros((self.n_per_board, 3), dtype=float)
@@ -172,14 +182,14 @@ class BoardGeometry:
     def summary(self) -> str:
         aperture_x, aperture_y = self.aperture_m
         return (
-            f"board A x=0..{(self.side - 1) * self.spacing_m * 1e3:.0f} mm, "
-            f"board B origin x={self.board_b_origin[0] * 1e3:.1f} mm "
-            f"y={self.board_b_origin[1] * 1e3:.1f} mm, "
-            f"gap={self.gap_m * 1e3:.1f} mm, "
-            f"offset=({self.offset_x_m * 1e3:.1f}, "
-            f"{self.offset_y_m * 1e3:.1f}) mm, "
-            f"combined aperture {aperture_x * 1e3:.0f} x "
-            f"{aperture_y * 1e3:.0f} mm"
+            f"board A x=0..{(self.side - 1) * self.spacing_m * 1e3:.2f} mm, "
+            f"board B origin x={self.board_b_origin[0] * 1e3:.2f} mm "
+            f"y={self.board_b_origin[1] * 1e3:.2f} mm, "
+            f"seam={self.seam_m * 1e3:.2f} mm "
+            f"(edge gap {self.edge_gap_m * 1e3:.2f} mm), "
+            f"pitch={self.spacing_m * 1e3:.2f} mm, "
+            f"combined aperture {aperture_x * 1e3:.2f} x "
+            f"{aperture_y * 1e3:.2f} mm"
         )
 
 

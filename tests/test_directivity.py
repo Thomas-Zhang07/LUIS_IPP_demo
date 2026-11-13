@@ -111,7 +111,7 @@ def test_metrics_with_amplitude_taper_lowers_sidelobes_but_not_grating():
     assert tapered["main_lobe_gain_db"] < flat["main_lobe_gain_db"] - 2.0
     # Per-element weights scale the main and grating lobes equally.
     assert tapered["grating_lobe_db"] == pytest.approx(
-        flat["grating_lobe_db"], abs=0.5
+        flat["grating_lobe_db"], abs=0.8
     )
 
 
@@ -202,7 +202,7 @@ def test_load_calibration_file(tmp_path):
 
 
 def test_grating_lobe_threshold_and_directions():
-    assert directivity.spatial_aliasing_frequency_hz() == pytest.approx(34300.0)
+    assert directivity.spatial_aliasing_frequency_hz() == pytest.approx(343.0 / 0.0105)
     lobes = directivity.grating_lobe_directions(0.0, 0.0)
     assert len(lobes) == 4
     step = 343.0 / 40000.0 / SPACING
@@ -244,8 +244,8 @@ def test_metrics_baseline_broadside():
     assert metrics["main_lobe_gain_db"] == pytest.approx(0.0)
     assert metrics["active_elements"] == 256
     # The grating lobe dominates the unrestricted sidelobe metric.
-    assert metrics["peak_sidelobe_db"] > -1.0
-    assert metrics["grating_lobe_db"] > -1.0
+    assert metrics["peak_sidelobe_db"] > -2.0
+    assert metrics["grating_lobe_db"] > -2.0
     assert metrics["near_sidelobe_db"] < -10.0
 
 

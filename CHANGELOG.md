@@ -6,6 +6,20 @@ semantic versioning once releases are tagged.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Array pitch corrected to 10.5 mm.**  The board pick-place/Gerber data give
+  16 x 16 elements at 10.5000 mm pitch (157.5 mm span); the previous 10 mm
+  value was the transducer body diameter.  `emitters.SPACING` and all geometry,
+  steering and grating predictions now use the measured pitch.  The broadside
+  grating lobe moves from 59.04 deg to **54.75 deg**, and the spatial-aliasing
+  carrier from 34.3 kHz to 32.7 kHz.
+- **Two-board geometry from the measured PCB.**  `BoardGeometry` now takes the
+  element-centre `seam_m` directly (default 36.75 mm) and a 5.25 mm y offset,
+  matching the acrylic fixture: 351.75 x 162.75 mm combined aperture, 9.16 mm
+  edge gap.  The old `gap_m`/`offset_x_m` parameters and `--gap`/`--offset-x`
+  flags are replaced by `--seam`/`--offset-y`.
+
 ### Added
 
 - `dual_board.py`: 512-element two-board geometry (5 mm x/y half-pitch

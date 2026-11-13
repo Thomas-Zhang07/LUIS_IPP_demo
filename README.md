@@ -7,7 +7,9 @@ simple ON/OFF patterns.
 
 ## Hardware and protocol
 
-- **Array:** 16×16 = 256 transducers, 10 mm spacing, lying in the z = 0 plane.
+- **Array:** 16×16 = 256 transducers, **10.5 mm** centre-to-centre spacing
+  (measured from the board's pick-place data; the 10 mm figure is the
+  transducer body diameter), lying in the z = 0 plane.
   The coordinate origin is the bottom-left emitter; x and y increase to the
   right and upward.
 - **Carrier:** 40 kHz by default, with an assumed speed of sound of 343 m/s
@@ -49,9 +51,9 @@ python -m pip install matplotlib
 Dry runs compute frames and print phase maps without touching hardware:
 
 ```bash
-python single_point_hover.py --dry-run --x 0.075 --y 0.075 --z 0.05
-python single_point_vortex.py --dry-run --x 0.075 --y 0.075 --z 0.05 --charge 1
-python single_point_circle.py --dry-run --x 0.075 --y 0.075 --z 0.05
+python single_point_hover.py --dry-run --x 0.07875 --y 0.07875 --z 0.05
+python single_point_vortex.py --dry-run --x 0.07875 --y 0.07875 --z 0.05 --charge 1
+python single_point_circle.py --dry-run --x 0.07875 --y 0.07875 --z 0.05
 python transducer_phase_steer_2d.py --dry-run --alpha 0 --beta 30
 python mode_control.py --dry-run
 python directional_speaker.py --dry-run --alpha 0 --beta 0
@@ -67,8 +69,8 @@ Send to a board by adding `--port COM3` (or run without `--port` to pick from a
 list of detected ports):
 
 ```bash
-python single_point_hover.py --x 0.075 --y 0.075 --z 0.05 --port COM3
-python single_point_vortex.py --x 0.075 --y 0.075 --z 0.05 --charge -1 --port COM3
+python single_point_hover.py --x 0.07875 --y 0.07875 --z 0.05 --port COM3
+python single_point_vortex.py --x 0.07875 --y 0.07875 --z 0.05 --charge -1 --port COM3
 python transducer_phase_steer.py --angle 45 --port COM3
 ```
 
@@ -98,8 +100,8 @@ python transducer_phase_steer.py --angle 45 --port COM3
 | `single_point_circle.py` | Moves the focus around a 3 cm **diameter** circle (1.5 cm radius) in the XY plane. | `--period` (default 2 s), `--points` (default 48) |
 
 Default targets differ: `single_point_hover.py` prompts with
-`(0.075, 0.075, 0.0)`, while vortex/line/circle use
-`(0.075, 0.075, 0.05)`.
+`(0.07875, 0.07875, 0.0)`, while vortex/line/circle use
+`(0.07875, 0.07875, 0.05)`.
 
 Ctrl+C stops line and circle streaming **without** sending an all-off frame;
 the board keeps its last state.
@@ -131,7 +133,7 @@ Steering conventions:
   (`-360..360`).
 - **Off-axis** `beta` is measured from +z (`0..180`). `beta = 0` is broadside.
 - The 2D array is treated as a 1D array along x for the single-angle legacy
-  steering; the phase center is x = 0.075 m.
+  steering; the phase center is x = 0.07875 m.
 - The phase sign assumes `exp(i·(ωt − k·r))`. **The firmware's phase-bin
   mapping and the physical beam direction still require hardware
   verification.**
@@ -160,14 +162,15 @@ describe the **non-grating** sidelobe floor, not the grating lobes.
 factor at a grating-lobe direction equals the main-lobe array factor for *any*
 per-element phase or amplitude (including ON/OFF) pattern — the grating
 condition removes every phase difference and both lobes scale with the same
-weighted sum. At 10 mm pitch and 40 kHz (`d/λ = 1.166`), broadside grating
-lobes sit near ±59°; no host algorithm can lower them. The same limit applies
-to the ≈3° main-lobe width, which is set by the 150 mm aperture. Host
+weighted sum. At **10.5 mm** pitch and 40 kHz (`d/λ = 1.224`), broadside
+grating lobes sit near **±54.75°**; no host algorithm can lower them. The same
+limit applies to the ≈3° main-lobe width, which is set by the 157.5 mm
+aperture. Host
 algorithms shape the non-grating sidelobes and can place user-selected nulls
 (`--null AZ:BETA`), but the real levers for grating lobes are:
 
-- the element directivity (a 10 mm piston attenuates ±59° by roughly 15 dB),
-- a carrier below `c / spacing` = 34.3 kHz (no broadside grating lobe),
+- the element directivity (a 10 mm piston attenuates ±54.75° by roughly 13 dB),
+- a carrier below `c / spacing` = 32.7 kHz (no broadside grating lobe),
 - spacing ≤ λ/2 (≤ 4.3 mm), or an aperiodic element layout.
 
 Per-channel phase errors are the other practical limiter. Measure them and
@@ -206,11 +209,19 @@ lattice requires.
 ### Two-board directional array
 
 `dual_directional_speaker.py` treats the two boards as one 512-element
-aperture.  Board A (primary) is at `x = 0..150 mm`; board B (secondary) starts
-at `x = 150 mm + gap + 5 mm` and is shifted `+5 mm` in y, so the boards are
-coplanar with half a lattice pitch between them in both axes.  Each board gets
-its own 258-byte frame preceded by its board-select byte (`0xC0` primary,
-`0xC1` secondary) and both frames are written in parallel.
+aperture.  The **measured** PCB has a 10.5 mm pitch and a 157.5 mm element
+span; the recommended fixture puts the boards at a **seam of 36.75 mm**
+(element centre to element centre, i.e. a 9.16 mm PCB edge gap) and shifts
+board B **+5.25 mm** in y.  The element origins are:
+
+```
+board A: x =     0.00 + 10.5 i mm,  y =  0.00 + 10.5 j mm
+board B: x =   194.25 + 10.5 i mm,  y =  5.25 + 10.5 j mm
+```
+
+so the combined aperture is 351.75 × 162.75 mm.  Each board gets its own
+258-byte frame preceded by its board-select byte (`0xC0` primary, `0xC1`
+secondary) and both frames are written in parallel.
 
 ```bash
 # Planar broadside, geometry + predicted pattern, nothing sent
@@ -219,15 +230,15 @@ python dual_directional_speaker.py --dry-run
 # Send to both boards
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7
 
-# Hann taper over the full 305 x 155 mm envelope
+# Hann taper over the full 352 x 163 mm envelope
 python dual_directional_speaker.py --dry-run --amplitude-window hann
 
 # Spherical-wave focus at 1.5 m instead of plane-wave steering
 python dual_directional_speaker.py --dry-run --focus-z 1.5
 ```
 
-Geometry flags: `--gap`, `--offset-x`, `--offset-y` (meters, defaults 0 mm,
-5 mm, 5 mm; raise `--gap` to the measured clear gap).  Shaping flags:
+Geometry flags: `--seam` (element-centre distance, default 0.03675 m) and
+`--offset-y` (default 0.00525 m).  Shaping flags:
 `--amplitude-window {none,hann,gaussian,blackman,tukey}`, `--optimize-sweeps`,
 `--null AZ:BETA`, `--samples`.  Side-leak flags: `--side-start DEG`
 (default 60; the region to report and optimize, 0 = all sidelobes),
@@ -239,29 +250,30 @@ Fine alignment: `--trim N` sends the secondary's `0xE0 0x5A N` command
 --trim-dwell S` steps it while you watch a meter.  This needs the secondary
 firmware with `SyncTrim`; the command is only recognised between frames.
 
-**What the offset does and does not do.**  The 5 mm half-pitch shift makes the
-two boards' contributions cancel *exactly at* the 59.04° grating direction
-(`grating_lobe_db`), and the model reports that null.  It does **not** remove
-the grating lobe: each board is a 150 mm aperture, so the relative phase
-changes rapidly away from that direction and the lobe splits into two peaks a
-couple of degrees either side of the null.
+**What the offset does and does not do.**  The 5.25 mm half-pitch shift makes
+the two boards' contributions cancel *exactly at* the **54.75°** grating
+direction (`grating_lobe_db`), and the model reports that null.  It does
+**not** remove the grating lobe: each board is a 157.5 mm aperture, so the
+relative phase changes rapidly away from that direction and the lobe splits
+into two peaks a few degrees either side of the null — around 52–57°, i.e.
+**below** the 60° side-leak boundary.
 
-The model now includes the **10 mm piston directivity** by default, which is
-what makes the above-60 region realistic.  Broadside, uniform phases, 512
-elements:
+The model includes the **10 mm piston directivity** by default.  Broadside,
+uniform phases, 512 elements:
 
 | Model | Side leak above 60° | Overall peak sidelobe | Main gain |
 |---|---|---|---|
-| isotropic (`--element-diameter-mm 0`) | −3.6 dB | −2.8 dB | 0 dB |
-| 10 mm piston (default) | **−18.9 dB** | −14.0 dB | 0 dB |
-| piston + 3 far-region sweeps | **−20.9 dB** | −18.1 dB | −5.4 dB |
+| isotropic (`--element-diameter-mm 0`) | −13.9 dB | −2.2 dB | 0 dB |
+| 10 mm piston (default) | **−30.2 dB** | −14.3 dB | 0 dB |
+| piston + 3 far-region sweeps | **−36.7 dB** | −14.4 dB | −2.2 dB |
 
-So the piston directivity does most of the work; the phase-only optimizer can
-add a couple of dB above 60° at the cost of main-beam gain.  Use
-`far_sidelobe_db` as the side-leak metric and `--side-start` to move the
-boundary; `peak_sidelobe_db` covers the whole hemisphere, and the exact 59°
-null alone is misleading.  Eliminating the grating lobe itself still requires
-a different carrier (≤34.3 kHz), a ≤4.3 mm lattice, or an aperiodic layout.
+With the measured geometry the >60° region is already well below the
+split-lobe peaks, so the optimizer mainly buys margin there.  The remaining
+side leak is the **split lobe near 53°**; `peak_sidelobe_db` is the metric for
+that.  Use `far_sidelobe_db` for the above-`--side-start` region and
+`--side-start` to move the boundary; the exact 54.75° null alone is
+misleading.  Eliminating the grating lobe still requires a different carrier
+(≤32.7 kHz), a ≤4.3 mm lattice, or an aperiodic layout.
 
 ### Duty-cycle amplitude weighting
 
@@ -329,8 +341,8 @@ non-grating floor and cost main-lobe gain, so it is not recommended on its own.
   mathematically identical phases do not land in different bins.
 - **Array-factor plots are theoretical** idealized models (isotropic
   elements, ideal bin phases). They are not measurements.
-- **Directional-speaker algorithms cannot remove grating lobes.** At 10 mm
-  pitch and 40 kHz the lattice fixes them near ±59° for broadside; every
+- **Directional-speaker algorithms cannot remove grating lobes.** At 10.5 mm
+  pitch and 40 kHz the lattice fixes them near ±54.75° for broadside; every
   per-element phase/ON-OFF pattern leaves their level unchanged. The host code
   optimizes the non-grating sidelobes and nulls instead. See
   "Directional-speaker beam shaping" above.

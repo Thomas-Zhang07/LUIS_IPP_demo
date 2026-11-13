@@ -103,8 +103,8 @@ def test_polar_coordinates_are_centered_and_symmetric():
     np.testing.assert_allclose(
         np.mean(EMITTERS_POS[:, :2] - center[:2], axis=0), [0.0, 0.0], atol=1e-12
     )
-    assert radii.min() == pytest.approx(math.hypot(0.005, 0.005))
-    assert radii.max() == pytest.approx(math.hypot(0.075, 0.075))
+    assert radii.min() == pytest.approx(math.hypot(0.00525, 0.00525))
+    assert radii.max() == pytest.approx(math.hypot(0.07875, 0.07875))
 
 
 def test_legacy_angle_to_spherical_boundaries():

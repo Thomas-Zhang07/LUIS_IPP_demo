@@ -3,11 +3,12 @@ import numpy as np
 # Emitter layout for a 16x16 grid (256 emitters).
 # Coordinates are (x, y, z). Grid lies in the x-y plane with z=0 (height = 0).
 # Origin (0,0,0) is at the LEFT-BOTTOM corner of the array.
-# Spacing between neighboring centers (columns/rows) is 10 mm.
+# Spacing between neighboring centres is 10.5 mm (measured from the board's
+# pick-place data: 10 mm transducer bodies with a 0.5 mm gap).
 N_SIDE = 16
 N_EMITTERS = N_SIDE * N_SIDE
 
-SPACING = 0.01  # meters (10 mm)
+SPACING = 0.0105  # meters (10.5 mm, measured)
 
 # Build positions: rows (r) from 0..15 bottom->top (vertical axis),
 # cols (c) from 0..15 left->right (horizontal axis).

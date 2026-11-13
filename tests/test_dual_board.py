@@ -10,23 +10,22 @@ from emitters import EMITTERS_ORDER
 
 
 def test_geometry_has_512_positions_and_half_pitch_offset():
-    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    geometry = dual_board.BoardGeometry(seam_m=0.00525, offset_y_m=0.00525)
     positions = geometry.positions()
     assert positions.shape == (512, 3)
 
     board_a = geometry.board_a_positions()
     board_b = geometry.board_b_positions()
     assert np.allclose(board_a[0], (0.0, 0.0, 0.0))
-    assert np.allclose(board_a[255], (0.150, 0.150, 0.0))
-    # With no gap, the seam is exactly the 5 mm half-pitch offset.
-    assert np.allclose(board_b[0], (0.155, 0.005, 0.0))
-    assert board_b[1, 0] - board_b[0, 0] == pytest.approx(0.010)
-    assert board_b[16, 1] - board_b[0, 1] == pytest.approx(0.010)
+    assert np.allclose(board_a[255], (0.1575, 0.1575, 0.0))
+    assert np.allclose(board_b[0], (0.16275, 0.00525, 0.0))
+    assert board_b[1, 0] - board_b[0, 0] == pytest.approx(0.0105)
+    assert board_b[16, 1] - board_b[0, 1] == pytest.approx(0.0105)
 
 
-def test_gap_only_changes_the_seam():
-    tight = dual_board.BoardGeometry(gap_m=0.0).positions()
-    loose = dual_board.BoardGeometry(gap_m=0.020).positions()
+def test_seam_changes_only_the_seam():
+    tight = dual_board.BoardGeometry(seam_m=0.00525).positions()
+    loose = dual_board.BoardGeometry(seam_m=0.02525).positions()
     assert np.allclose(tight[:256], loose[:256])
     assert np.allclose(loose[256:, 0] - tight[256:, 0], 0.020)
     assert np.allclose(loose[256:, 1], tight[256:, 1])
@@ -34,9 +33,9 @@ def test_gap_only_changes_the_seam():
 
 def test_geometry_rejects_bad_values():
     with pytest.raises(ValueError):
-        dual_board.BoardGeometry(gap_m=-0.001)
+        dual_board.BoardGeometry(seam_m=-0.001)
     with pytest.raises(ValueError):
-        dual_board.BoardGeometry(offset_x_m=float("nan"))
+        dual_board.BoardGeometry(offset_y_m=float("nan"))
 
 
 def test_phase_bins_fit_and_payloads_carry_select_byte():
@@ -67,7 +66,7 @@ def test_payload_phase_order_matches_emitters_order():
 
 
 def test_half_pitch_offset_nulls_the_exact_grating_direction():
-    shifted = dual_board.BoardGeometry(gap_m=0.0)
+    shifted = dual_board.BoardGeometry(seam_m=0.00525, offset_y_m=0.00525)
     analyzer = dual_board.CombinedBeamAnalyzer(
         shifted.positions(), samples=121, element_diameter_m=None
     )
@@ -76,7 +75,7 @@ def test_half_pitch_offset_nulls_the_exact_grating_direction():
     assert level < -20.0
 
     unshifted = dual_board.BoardGeometry(
-        gap_m=0.0, offset_x_m=0.0, offset_y_m=0.0
+        seam_m=0.0, offset_y_m=0.0
     )
     reference = dual_board.CombinedBeamAnalyzer(
         unshifted.positions(), samples=121, element_diameter_m=None
@@ -87,14 +86,14 @@ def test_half_pitch_offset_nulls_the_exact_grating_direction():
 
 def test_offset_leaves_split_lobes_beside_the_null():
     """Document the physics: the null is narrow, the lobe energy splits."""
-    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    geometry = dual_board.BoardGeometry(seam_m=0.00525, offset_y_m=0.00525)
     analyzer = dual_board.CombinedBeamAnalyzer(
         geometry.positions(), samples=121, element_diameter_m=None
     )
     phases = np.zeros(512, dtype=int)
     # The exact grating direction is nulled, but a few degrees away the two
     # board halves no longer cancel.
-    level = analyzer.level_at(phases, 0.0, 61.0)
+    level = analyzer.level_at(phases, 0.0, dual_board.GRATING_BETA_DEG + 2.0)
     assert level > -10.0
     metrics = analyzer.metrics(phases)
     assert metrics["peak_sidelobe_db"] > -10.0
@@ -179,7 +178,7 @@ def test_board_link_rejects_same_port():
 
 def test_grating_beta_is_the_lattice_alias():
     expected = math.degrees(
-        math.asin((343.0 / 40000.0) / 0.010)
+        math.asin((343.0 / 40000.0) / 0.0105)
     )
     assert dual_board.GRATING_BETA_DEG == pytest.approx(expected)
 
@@ -246,7 +245,7 @@ def test_cli_dry_run_reports_trim(capsys):
 
 
 def test_piston_directivity_lowers_the_far_lobes():
-    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    geometry = dual_board.BoardGeometry()
     isotropic = dual_board.CombinedBeamAnalyzer(
         geometry.positions(), samples=121, element_diameter_m=None
     )
@@ -256,13 +255,13 @@ def test_piston_directivity_lowers_the_far_lobes():
     phases = np.zeros(512, dtype=int)
     iso = isotropic.metrics(phases)
     real = piston.metrics(phases)
-    assert iso["far_sidelobe_db"] > -6.0
+    assert iso["peak_sidelobe_db"] > -10.0
     assert real["far_sidelobe_db"] < iso["far_sidelobe_db"] - 10.0
     assert piston.level_at(phases, 0.0, dual_board.GRATING_BETA_DEG) < -20.0
 
 
 def test_far_region_optimizer_trades_near_sidelobes():
-    geometry = dual_board.BoardGeometry(gap_m=0.0)
+    geometry = dual_board.BoardGeometry()
     analyzer = dual_board.CombinedBeamAnalyzer(geometry.positions(), samples=61)
     phases = np.zeros(512, dtype=int)
     before = analyzer.metrics(phases)

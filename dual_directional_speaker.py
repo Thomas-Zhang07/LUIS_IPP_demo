@@ -64,14 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--focus-y", type=float, default=0.0,
                         help="Focus y coordinate in meters (with --focus-z)")
 
-    parser.add_argument("--gap", type=float, default=dual_board.DEFAULT_GAP_M,
-                        help="Clear extra gap between the boards in meters (default 0.000)")
-    parser.add_argument("--offset-x", type=float,
-                        default=dual_board.DEFAULT_OFFSET_X_M,
-                        help="Board B x offset in meters (default 0.005)")
+    parser.add_argument("--seam", type=float, default=dual_board.DEFAULT_SEAM_M,
+                        help="Element-centre distance across the boards in meters "
+                             "(default 0.03675)")
     parser.add_argument("--offset-y", type=float,
                         default=dual_board.DEFAULT_OFFSET_Y_M,
-                        help="Board B y offset in meters (default 0.005)")
+                        help="Board B y offset in meters (default 0.00525)")
 
     parser.add_argument("--amplitude-window",
                         choices=("none", "hann", "gaussian", "blackman", "tukey"),
@@ -134,8 +132,7 @@ def parse_trim_sweep(value):
 
 def build_plan(args):
     geometry = dual_board.BoardGeometry(
-        gap_m=args.gap,
-        offset_x_m=args.offset_x,
+        seam_m=args.seam,
         offset_y_m=args.offset_y,
     )
     bins_a, bins_b = dual_board.board_phase_bins(
@@ -237,7 +234,7 @@ def report(geometry, analyzer, phases, codes, info, args) -> None:
     for azimuth, level in sorted(metrics["grating_lobe_db"].items()):
         print(f"  az {azimuth:5.1f}: {level:6.1f} dB")
     print(
-        "note: the half-pitch offset nulls the exact 59 deg direction; the "
+        "note: the half-pitch offset nulls the exact grating direction; the "
         "remaining grating energy appears as a split lobe on either side. "
         "far_sidelobe_db is the peak above --side-start; the optimizer "
         "targets that region, so watch main_lobe_gain_db and the near peak."

@@ -21,8 +21,8 @@ def test_physical_phase_grid_orientation():
     assert grid[0, 0] == values[0]
     assert grid[3, 5] == values[3 * 16 + 5]
     assert grid[15, 15] == values[255]
-    np.testing.assert_allclose(x_coordinates, np.arange(16) * 0.01)
-    np.testing.assert_allclose(y_coordinates, np.arange(16) * 0.01)
+    np.testing.assert_allclose(x_coordinates, np.arange(16) * 0.0105)
+    np.testing.assert_allclose(y_coordinates, np.arange(16) * 0.0105)
 
 
 def test_print_physical_phase_map():
