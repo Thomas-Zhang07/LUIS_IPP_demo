@@ -219,15 +219,15 @@ python dual_directional_speaker.py --dry-run
 # Send to both boards
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7
 
-# Hann taper over the full 315 x 155 mm envelope
+# Hann taper over the full 305 x 155 mm envelope
 python dual_directional_speaker.py --dry-run --amplitude-window hann
 
 # Spherical-wave focus at 1.5 m instead of plane-wave steering
 python dual_directional_speaker.py --dry-run --focus-z 1.5
 ```
 
-Geometry flags: `--gap`, `--offset-x`, `--offset-y` (meters, defaults 10 mm,
-5 mm, 5 mm).  Shaping flags: `--amplitude-window
+Geometry flags: `--gap`, `--offset-x`, `--offset-y` (meters, defaults 0 mm,
+5 mm, 5 mm; raise `--gap` to the measured clear gap).  Shaping flags: `--amplitude-window
 {none,hann,gaussian,blackman,tukey}`, `--optimize-sweeps`, `--null AZ:BETA`,
 `--samples`.
 

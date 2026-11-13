@@ -29,7 +29,7 @@ import emitters
 import protocol
 from directivity import amplitude_code_for_weight, amplitude_from_code
 
-DEFAULT_GAP_M = 0.010
+DEFAULT_GAP_M = 0.000
 DEFAULT_OFFSET_X_M = 0.005
 DEFAULT_OFFSET_Y_M = 0.005
 

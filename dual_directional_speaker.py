@@ -64,7 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Focus y coordinate in meters (with --focus-z)")
 
     parser.add_argument("--gap", type=float, default=dual_board.DEFAULT_GAP_M,
-                        help="Clear gap between the boards in meters (default 0.010)")
+                        help="Clear extra gap between the boards in meters (default 0.000)")
     parser.add_argument("--offset-x", type=float,
                         default=dual_board.DEFAULT_OFFSET_X_M,
                         help="Board B x offset in meters (default 0.005)")
