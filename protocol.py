@@ -163,6 +163,26 @@ def build_amplitude_frame(
     return bytes([HEADER]) + bytes(payload) + bytes([FOOTER])
 
 
+TRIM_PREFIX = 0xE0
+TRIM_MAGIC = 0x5A
+
+
+def build_trim_command(steps: int) -> bytes:
+    """Return the secondary fine-trim command ``0xE0 0x5A <steps>``.
+
+    The firmware only recognises this sequence between frames (after
+    ``0xFD`` and before the next ``0xFE``).  Each step delays the secondary
+    carrier by 20 ns, i.e. 0.288 degrees at 40 kHz; 0..255 covers about
+    +/-36 degrees around the default value of 127.
+    """
+    if isinstance(steps, bool) or not isinstance(steps, (int, np.integer)):
+        raise ValueError("trim steps must be an integer.")
+    steps = int(steps)
+    if not 0 <= steps <= 255:
+        raise ValueError("trim steps must be between 0 and 255.")
+    return bytes([TRIM_PREFIX, TRIM_MAGIC, steps])
+
+
 def build_uniform_frame(value: int) -> bytes:
     """Build a frame that applies the same value to every transducer."""
     if isinstance(value, bool) or not isinstance(value, (int, np.integer)):

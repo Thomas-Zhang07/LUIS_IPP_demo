@@ -409,6 +409,18 @@ class BoardLink:
         self._contexts = ()
         self._connection_a = self._connection_b = None
 
+    def send_trim(self, steps: int) -> None:
+        """Send the fine-trim command to board B (the secondary) only."""
+        if self._connection_b is None:
+            raise RuntimeError("BoardLink is not open.")
+        payload = protocol.build_trim_command(steps)
+        written = self._connection_b.write(payload)
+        self._connection_b.flush()
+        if written != len(payload):
+            raise OSError(
+                f"Incomplete trim write: sent {written} of {len(payload)} bytes."
+            )
+
     def send(self, payload_a: bytes, payload_b: bytes) -> None:
         """Write both payloads concurrently.
 

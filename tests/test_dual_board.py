@@ -198,3 +198,44 @@ def test_cli_requires_both_ports_without_dry_run(capsys):
     assert cli.main(["--samples", "21"]) == 2
     error = capsys.readouterr().err
     assert "board-a-port" in error and "board-b-port" in error
+
+
+def test_trim_command_bytes():
+    import protocol
+
+    assert protocol.build_trim_command(0) == b"\xe0\x5a\x00"
+    assert protocol.build_trim_command(127) == b"\xe0\x5a\x7f"
+    assert protocol.build_trim_command(255) == b"\xe0\x5a\xff"
+    for bad in (-1, 256, True, 1.5):
+        with pytest.raises(ValueError):
+            protocol.build_trim_command(bad)
+
+
+def test_board_link_sends_trim_only_to_secondary():
+    factory = _FakeFactory()
+    link = dual_board.BoardLink(
+        "COM6", "COM7", serial_factory=factory, sleep=lambda _: None
+    )
+    with link:
+        link.send_trim(200)
+    connection_a, connection_b = factory.connections
+    assert connection_a.writes == []
+    assert connection_b.writes == [b"\xe0\x5a\xc8"]
+
+
+def test_parse_trim_sweep():
+    import dual_directional_speaker as cli
+
+    assert cli.parse_trim_sweep("0:255:128") == [0, 128]
+    assert cli.parse_trim_sweep("120:130:5") == [120, 125, 130]
+    for bad in ("1:2", "0:10:0", "0:300:10", "a:b:c"):
+        with pytest.raises(ValueError):
+            cli.parse_trim_sweep(bad)
+
+
+def test_cli_dry_run_reports_trim(capsys):
+    import dual_directional_speaker as cli
+
+    assert cli.main(["--dry-run", "--samples", "21", "--trim", "127"]) == 0
+    output = capsys.readouterr().out
+    assert "trim command: e0 5a 7f" in output

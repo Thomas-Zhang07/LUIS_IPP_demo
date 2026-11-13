@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -89,6 +90,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--null", action="append", default=[], metavar="AZ:BETA",
                         help="Extra null direction; repeatable")
     parser.add_argument("--null-weight", type=float, default=1.0)
+
+    parser.add_argument("--trim", type=int, default=None, metavar="N",
+                        help="Secondary fine trim 0..255 (20 ns/step; default 127)")
+    parser.add_argument("--trim-sweep", default=None, metavar="START:STOP:STEP",
+                        help="Sweep the secondary trim after sending the beam")
+    parser.add_argument("--trim-dwell", type=float, default=2.0, metavar="S",
+                        help="Dwell time per sweep point in seconds (default 2)")
     return parser
 
 
@@ -101,6 +109,21 @@ def parse_nulls(values):
             raise ValueError(f"Null {value!r} must look like AZ:BETA.") from error
         nulls.append((float(azimuth), float(beta)))
     return nulls
+
+
+def parse_trim_sweep(value):
+    try:
+        parts = [int(part) for part in value.split(":")]
+    except ValueError as error:
+        raise ValueError(f"Trim sweep {value!r} must look like START:STOP:STEP.") from error
+    if len(parts) != 3:
+        raise ValueError(f"Trim sweep {value!r} must look like START:STOP:STEP.")
+    start, stop, step = parts
+    if step <= 0:
+        raise ValueError("Trim sweep step must be positive.")
+    if not (0 <= start <= 255 and 0 <= stop <= 255):
+        raise ValueError("Trim sweep values must be 0..255.")
+    return list(range(start, stop + 1, step))
 
 
 def build_plan(args):
@@ -226,9 +249,28 @@ def main(argv=None) -> int:
     )
     report(geometry, analyzer, phases, codes, info, args)
 
+    try:
+        sweep = parse_trim_sweep(args.trim_sweep) if args.trim_sweep else None
+    except ValueError as error:
+        print(f"Invalid trim sweep: {error}", file=sys.stderr)
+        return 2
+    if args.trim is not None and not 0 <= args.trim <= 255:
+        print("--trim must be 0..255.", file=sys.stderr)
+        return 2
+    if args.trim is not None and sweep is not None:
+        print("Use either --trim or --trim-sweep, not both.", file=sys.stderr)
+        return 2
+
     if args.dry_run:
         print("board A first bytes:", payload_a[:12].hex(" "))
         print("board B first bytes:", payload_b[:12].hex(" "))
+        if args.trim is not None:
+            print("trim command:", protocol.build_trim_command(args.trim).hex(" "))
+        if sweep is not None:
+            print(
+                "trim sweep:", " ".join(str(value) for value in sweep),
+                f"({args.trim_dwell:g} s each)",
+            )
         print("[DRY RUN] no serial data sent.")
         return 0
 
@@ -244,7 +286,17 @@ def main(argv=None) -> int:
         with dual_board.BoardLink(
             args.board_a_port, args.board_b_port, baudrate=args.baud
         ) as link:
-            link.send(payload_a, payload_b)
+            if sweep is not None:
+                link.send(payload_a, payload_b)
+                for value in sweep:
+                    link.send_trim(value)
+                    print(f"trim {value:3d}")
+                    time.sleep(args.trim_dwell)
+            else:
+                if args.trim is not None:
+                    link.send_trim(args.trim)
+                    print(f"trim {args.trim:3d}")
+                link.send(payload_a, payload_b)
     except OSError as error:
         print(f"Serial error: {error}", file=sys.stderr)
         return 2
