@@ -85,6 +85,7 @@ python transducer_phase_steer.py --angle 45 --port COM3
 | `trajectory.py` | Circle/line point generation, deadline-based streaming, ON/OFF, bit patterns, rotation. |
 | `array_factor.py` | Theoretical array-factor and sidelobe analysis, plotting. |
 | `directivity.py` | Density thinning, phase dithering, phase-only sidelobe optimization, calibration, and beam analysis. |
+| `dual_board.py` | Two-board geometry (512 elements), per-board frame routing, parallel serial links, and the combined beam analyzer. |
 | `serial_utils.py` | Port discovery and selection. |
 
 ### Focus and trajectories
@@ -201,6 +202,46 @@ The best setting lowers the near sidelobe from −15.61 dB to −20.54 dB at
 β = 20° (and from −16.11 dB to −21.03 dB broadside) for about 2.8 dB of
 main-lobe gain. The grating lobes stay within 0.1 dB of the baseline, as the
 lattice requires.
+
+### Two-board directional array
+
+`dual_directional_speaker.py` treats the two boards as one 512-element
+aperture.  Board A (primary) is at `x = 0..150 mm`; board B (secondary) starts
+at `x = 150 mm + gap + 5 mm` and is shifted `+5 mm` in y, so the boards are
+coplanar with half a lattice pitch between them in both axes.  Each board gets
+its own 258-byte frame preceded by its board-select byte (`0xC0` primary,
+`0xC1` secondary) and both frames are written in parallel.
+
+```bash
+# Planar broadside, geometry + predicted pattern, nothing sent
+python dual_directional_speaker.py --dry-run
+
+# Send to both boards
+python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7
+
+# Hann taper over the full 315 x 155 mm envelope
+python dual_directional_speaker.py --dry-run --amplitude-window hann
+
+# Spherical-wave focus at 1.5 m instead of plane-wave steering
+python dual_directional_speaker.py --dry-run --focus-z 1.5
+```
+
+Geometry flags: `--gap`, `--offset-x`, `--offset-y` (meters, defaults 10 mm,
+5 mm, 5 mm).  Shaping flags: `--amplitude-window
+{none,hann,gaussian,blackman,tukey}`, `--optimize-sweeps`, `--null AZ:BETA`,
+`--samples`.
+
+**What the offset does and does not do.**  The 5 mm half-pitch shift makes the
+two boards' contributions cancel *exactly at* the 59.04° grating direction
+(`grating_lobe_db`), and the model here reports that null.  It does **not**
+remove the grating lobe: because each board is a 150 mm aperture, the relative
+phase changes rapidly away from that direction, so the lobe splits into two
+peaks a couple of degrees either side of the null.  With isotropic elements
+those peaks are near 0 dB; a 10 mm piston's directivity lowers them in
+practice.  `peak_sidelobe_db` (which includes the whole visible hemisphere)
+is the honest "side leak" number, not the 59° null depth.  Eliminating the
+grating lobe itself requires a different carrier (≤34.3 kHz), a ≤4.3 mm
+lattice, or an aperiodic layout.
 
 ### Duty-cycle amplitude weighting
 
@@ -320,10 +361,12 @@ cli_utils.py                   shared CLI and display helpers
 trajectory.py                  timed streaming, toggles, rotation
 array_factor.py                theoretical analysis and plotting
 directivity.py                 thinning, duty amplitude, dithering, phase optimization, calibration
+dual_board.py                  two-board geometry, frames, serial link, combined analyzer
 serial_utils.py                port discovery and selection
 single_point_*.py              focus, vortex, line, circle demos
 transducer_*.py                all-on, ON/OFF, steering demos
 directional_speaker.py         steering + beam shaping + comparison
+dual_directional_speaker.py    two-board steering/focus + combined report
 onoff.py, bit_pattern_onoff.py ON/OFF and pattern generators
 mode_control.py                mode command + phase frame
 wire_probe.py                  wire-address probe for oscilloscope tests

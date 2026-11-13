@@ -8,6 +8,17 @@ semantic versioning once releases are tagged.
 
 ### Added
 
+- `dual_board.py`: 512-element two-board geometry (5 mm x/y half-pitch
+  offset, configurable gap), per-board frame routing with the primary
+  `0xC0` / secondary `0xC1` select bytes, a parallel two-port `BoardLink`,
+  full-aperture Hann/Gaussian/Blackman/Tukey tapers, and a
+  `CombinedBeamAnalyzer` that keeps the whole hemisphere in the sidelobe
+  objective and reports the split grating lobes beside the 59° null.
+- `dual_directional_speaker.py`: steering or spherical-wave focusing for
+  both boards, optional phase optimization, predicted pattern report, and a
+  `--dry-run` that builds both frames without serial ports.
+- `tests/test_dual_board.py`: geometry, frame routing, offset nulling, the
+  split-lobe physics, taper codes, parallel link writes, and CLI dry-run.
 - Shared `protocol.py`: validated frame builders, uniform ON/OFF frames,
   wire-time calculations, a consistent serial context manager, and
   partial-write-checked sends.
