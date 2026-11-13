@@ -31,14 +31,13 @@ from directivity import amplitude_code_for_weight, amplitude_from_code
 
 # Measured from the supplied Gerbers/pick-place data (see
 # mounting_mechanics/investigation/measurements.json).
-DEFAULT_SEAM_M = 0.03675        # element centre to element centre across boards
+DEFAULT_SEAM_M = 0.01575        # element centre to element centre across boards
 DEFAULT_OFFSET_Y_M = 0.00525    # half of the 10.5 mm lattice
+DEFAULT_ROTATION_DEG = 90       # both boards rotated 90 deg CCW
 PCB_MARGIN_LEFT_M = 0.0137060
 PCB_MARGIN_RIGHT_M = 0.0138861
 PCB_MARGIN_BOTTOM_M = 0.0054960
 PCB_MARGIN_TOP_M = 0.0054060
-# The butted boards cannot have a seam smaller than the two facing margins.
-MIN_SEAM_M = PCB_MARGIN_RIGHT_M + PCB_MARGIN_LEFT_M
 
 PRIMARY_SELECT_BYTE = 0xC0
 SECONDARY_SELECT_BYTE = 0xC1
@@ -90,17 +89,21 @@ class BoardGeometry:
 
     Args:
         seam_m: element-centre distance between board A's rightmost element
-            and board B's leftmost element.  The measured boards have a
-            27.5921 mm minimum (butted) and the half-pitch-compatible
-            no-trim choice is 36.750 mm.
+            and board B's leftmost element.  With both boards rotated 90 deg
+            the narrow margins face the seam, so the butted minimum is
+            10.902 mm and the half-pitch-compatible choice is 15.750 mm.
         offset_y_m: board B shift along y; half of the 10.5 mm lattice
             (5.25 mm) interleaves the rows.
+        rotation_deg: physical board rotation, 0/90/180/270, applied to both
+            boards the same way.  90 is the fixture orientation: logical
+            (row, col) maps to (span - row*pitch, col*pitch).
         spacing_m: lattice pitch, 10.5 mm on this hardware.
         side: emitters per side, 16.
     """
 
     seam_m: float = DEFAULT_SEAM_M
     offset_y_m: float = DEFAULT_OFFSET_Y_M
+    rotation_deg: int = DEFAULT_ROTATION_DEG
     spacing_m: float = emitters.SPACING
     side: int = emitters.N_SIDE
     frequency_hz: float = acoustics.DEFAULT_FREQUENCY_HZ
@@ -124,6 +127,9 @@ class BoardGeometry:
             raise ValueError("spacing must be positive.")
         if self.side < 1:
             raise ValueError("side must be at least 1.")
+        if int(self.rotation_deg) % 90 != 0:
+            raise ValueError("rotation_deg must be 0, 90, 180 or 270.")
+        object.__setattr__(self, "rotation_deg", int(self.rotation_deg) % 360)
         acoustics.validate_acoustic_params(self.frequency_hz, self.sound_speed)
 
     @property
@@ -141,18 +147,39 @@ class BoardGeometry:
         )
 
     @property
+    def facing_margins_m(self) -> tuple[float, float]:
+        """The two board margins that face the seam, left then right."""
+        if self.rotation_deg in (0, 180):
+            return PCB_MARGIN_LEFT_M, PCB_MARGIN_RIGHT_M
+        return PCB_MARGIN_BOTTOM_M, PCB_MARGIN_TOP_M
+
+    @property
     def edge_gap_m(self) -> float:
         """Clear PCB edge-to-edge gap for the acoustic seam (may be negative)."""
-        return self.seam_m - MIN_SEAM_M
+        left, right = self.facing_margins_m
+        return self.seam_m - (left + right)
+
+    def _rotate(self, x, y):
+        span = (self.side - 1) * self.spacing_m
+        if self.rotation_deg == 0:
+            return x, y
+        if self.rotation_deg == 90:
+            return span - y, x
+        if self.rotation_deg == 180:
+            return span - x, span - y
+        return y, span - x  # 270
 
     def _grid(self, origin: np.ndarray) -> np.ndarray:
         positions = np.zeros((self.n_per_board, 3), dtype=float)
         for row in range(self.side):
             for col in range(self.side):
                 index = row * self.side + col
+                x = col * self.spacing_m
+                y = row * self.spacing_m
+                x, y = self._rotate(x, y)
                 positions[index] = (
-                    origin[0] + col * self.spacing_m,
-                    origin[1] + row * self.spacing_m,
+                    origin[0] + x,
+                    origin[1] + y,
                     0.0,
                 )
         return positions
@@ -187,6 +214,7 @@ class BoardGeometry:
             f"y={self.board_b_origin[1] * 1e3:.2f} mm, "
             f"seam={self.seam_m * 1e3:.2f} mm "
             f"(edge gap {self.edge_gap_m * 1e3:.2f} mm), "
+            f"rotation={self.rotation_deg} deg, "
             f"pitch={self.spacing_m * 1e3:.2f} mm, "
             f"combined aperture {aperture_x * 1e3:.2f} x "
             f"{aperture_y * 1e3:.2f} mm"

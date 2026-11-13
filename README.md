@@ -210,18 +210,22 @@ lattice requires.
 
 `dual_directional_speaker.py` treats the two boards as one 512-element
 aperture.  The **measured** PCB has a 10.5 mm pitch and a 157.5 mm element
-span; the recommended fixture puts the boards at a **seam of 36.75 mm**
-(element centre to element centre, i.e. a 9.16 mm PCB edge gap) and shifts
-board B **+5.25 mm** in y.  The element origins are:
+span.  The fixture rotates **both boards 90° CCW** so their narrow
+(5.4–5.5 mm) margins face the seam: the recommended seam is **15.75 mm**
+(element centre to element centre, i.e. a **4.85 mm** PCB edge gap), with
+board B shifted **+5.25 mm** in y.  In the host's normalised frame the
+logical `(row, col)` element sits at:
 
 ```
-board A: x =     0.00 + 10.5 i mm,  y =  0.00 + 10.5 j mm
-board B: x =   194.25 + 10.5 i mm,  y =  5.25 + 10.5 j mm
+board A: x = 157.5 - 10.5 row mm,  y =  0.00 + 10.5 col mm
+board B: x = 173.25 - 10.5 row mm, y =  5.25 + 10.5 col mm
 ```
 
-so the combined aperture is 351.75 × 162.75 mm.  Each board gets its own
-258-byte frame preceded by its board-select byte (`0xC0` primary, `0xC1`
-secondary) and both frames are written in parallel.
+so the combined aperture is 330.75 × 162.75 mm.  The 90° rotation is part of
+the acoustic model (`--rotation 90`); broadside is unaffected, but steering
+and focusing use the rotated positions.  Each board gets its own 258-byte
+frame preceded by its board-select byte (`0xC0` primary, `0xC1` secondary)
+and both frames are written in parallel.
 
 ```bash
 # Planar broadside, geometry + predicted pattern, nothing sent
@@ -230,15 +234,16 @@ python dual_directional_speaker.py --dry-run
 # Send to both boards
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7
 
-# Hann taper over the full 352 x 163 mm envelope
+# Hann taper over the full 331 x 163 mm envelope
 python dual_directional_speaker.py --dry-run --amplitude-window hann
 
 # Spherical-wave focus at 1.5 m instead of plane-wave steering
 python dual_directional_speaker.py --dry-run --focus-z 1.5
 ```
 
-Geometry flags: `--seam` (element-centre distance, default 0.03675 m) and
-`--offset-y` (default 0.00525 m).  Shaping flags:
+Geometry flags: `--seam` (element-centre distance, default 0.01575 m),
+`--offset-y` (default 0.00525 m) and `--rotation` (0/90/180/270, default 90;
+use 0 for the unrotated fallback fixture).  Shaping flags:
 `--amplitude-window {none,hann,gaussian,blackman,tukey}`, `--optimize-sweeps`,
 `--null AZ:BETA`, `--samples`.  Side-leak flags: `--side-start DEG`
 (default 60; the region to report and optimize, 0 = all sidelobes),
@@ -263,9 +268,9 @@ uniform phases, 512 elements:
 
 | Model | Side leak above 60° | Overall peak sidelobe | Main gain |
 |---|---|---|---|
-| isotropic (`--element-diameter-mm 0`) | −13.9 dB | −2.2 dB | 0 dB |
-| 10 mm piston (default) | **−30.2 dB** | −14.3 dB | 0 dB |
-| piston + 3 far-region sweeps | **−36.7 dB** | −14.4 dB | −2.2 dB |
+| isotropic (`--element-diameter-mm 0`) | −14.9 dB | −2.8 dB | 0 dB |
+| 10 mm piston (default) | **−31.3 dB** | −14.9 dB | 0 dB |
+| piston + 3 far-region sweeps | **−37.4 dB** | −15.0 dB | −2.0 dB |
 
 With the measured geometry the >60° region is already well below the
 split-lobe peaks, so the optimizer mainly buys margin there.  The remaining

@@ -66,10 +66,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--seam", type=float, default=dual_board.DEFAULT_SEAM_M,
                         help="Element-centre distance across the boards in meters "
-                             "(default 0.03675)")
+                             "(default 0.01575)")
     parser.add_argument("--offset-y", type=float,
                         default=dual_board.DEFAULT_OFFSET_Y_M,
                         help="Board B y offset in meters (default 0.00525)")
+    parser.add_argument("--rotation", type=int, choices=(0, 90, 180, 270),
+                        default=dual_board.DEFAULT_ROTATION_DEG,
+                        help="Physical board rotation applied to both boards "
+                             "(default 90, the fixture orientation)")
 
     parser.add_argument("--amplitude-window",
                         choices=("none", "hann", "gaussian", "blackman", "tukey"),
@@ -134,6 +138,7 @@ def build_plan(args):
     geometry = dual_board.BoardGeometry(
         seam_m=args.seam,
         offset_y_m=args.offset_y,
+        rotation_deg=args.rotation,
     )
     bins_a, bins_b = dual_board.board_phase_bins(
         geometry,

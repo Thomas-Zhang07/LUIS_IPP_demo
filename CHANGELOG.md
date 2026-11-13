@@ -21,6 +21,13 @@ semantic versioning once releases are tagged.
   flags are replaced by `--seam`/`--offset-y`.
 
 ### Added
+- **Rotated two-board fixture.**  Both boards rotate 90° CCW so the narrow
+  margins face the seam: default seam 15.75 mm, y offset 5.25 mm, 4.85 mm PCB
+  edge gap, 330.75 x 162.75 mm aperture.  `BoardGeometry` gained
+  `rotation_deg` (0/90/180/270) and the CLI gained `--rotation`; the logical
+  element positions rotate with the physical boards, so steering and focusing
+  stay correct.  The unrotated 36.75 mm design remains selectable with
+  `--rotation 0 --seam 0.03675` as the mechanical fallback.
 
 - `dual_board.py`: 512-element two-board geometry (5 mm x/y half-pitch
   offset, configurable gap), per-board frame routing with the primary

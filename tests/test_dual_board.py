@@ -10,7 +10,9 @@ from emitters import EMITTERS_ORDER
 
 
 def test_geometry_has_512_positions_and_half_pitch_offset():
-    geometry = dual_board.BoardGeometry(seam_m=0.00525, offset_y_m=0.00525)
+    geometry = dual_board.BoardGeometry(
+        seam_m=0.00525, offset_y_m=0.00525, rotation_deg=0
+    )
     positions = geometry.positions()
     assert positions.shape == (512, 3)
 
@@ -36,6 +38,8 @@ def test_geometry_rejects_bad_values():
         dual_board.BoardGeometry(seam_m=-0.001)
     with pytest.raises(ValueError):
         dual_board.BoardGeometry(offset_y_m=float("nan"))
+    with pytest.raises(ValueError):
+        dual_board.BoardGeometry(rotation_deg=45)
 
 
 def test_phase_bins_fit_and_payloads_carry_select_byte():
@@ -273,3 +277,18 @@ def test_far_region_optimizer_trades_near_sidelobes():
     assert after["far_sidelobe_db"] < before["far_sidelobe_db"] - 0.5
     # The near guard keeps the main beam from collapsing.
     assert after["main_lobe_gain_db"] > -10.0
+
+
+def test_rotation_90_maps_logical_indices_to_the_fixture():
+    geometry = dual_board.BoardGeometry(
+        seam_m=0.01575, offset_y_m=0.00525, rotation_deg=90
+    )
+    positions = geometry.board_a_positions()
+    span = 15 * 0.0105
+    # logical (row, col) -> (span - row*pitch, col*pitch)
+    assert np.allclose(positions[0], (span, 0.0, 0.0))
+    assert np.allclose(positions[15], (span, span, 0.0))
+    assert np.allclose(positions[15 * 16], (0.0, 0.0, 0.0))
+    # After the same rotation, logical 240 is board B's leftmost element.
+    assert np.allclose(geometry.board_b_positions()[240], (span + 0.01575, 0.00525, 0.0))
+    assert geometry.edge_gap_m == pytest.approx(0.01575 - 0.005496 - 0.005406)
