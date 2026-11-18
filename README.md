@@ -225,13 +225,33 @@ so the combined aperture is 330.75 × 162.75 mm.  The 90° rotation is part of
 the acoustic model (`--rotation 90`); broadside is unaffected, but steering
 and focusing use the rotated positions.  Each board gets its own 258-byte
 frame preceded by its board-select byte (`0xC0` primary, `0xC1` secondary)
-and both frames are written in parallel.
+and both frames are written in parallel when the boards have separate serial
+ports.
+
+If each board has its own host serial port, use `--board-a-port` and
+`--board-b-port`; the two frames are written in parallel.
+
+If instead the two boards' UART RX lines are tied together into **one shared
+UART net**, use `--bus-port`: the select byte enables the addressed board and
+disables the other, so both payloads are sent in sequence on that single port.
+The boards are independent links unless that B-to-B connection is wired.
+
+Each board's payload is written **twice** (A, A, B, B).  Every frame trailer
+(`0xFD`) swaps the current and previous phase registers on both boards, but
+only the enabled board writes new data.  With a single A-then-B pass, board A
+would revert to its previous pattern when B's trailer arrives; writing each
+frame twice puts it in both of that board's registers, and the other board
+sees an even number of swaps and is unaffected.  A full update therefore takes
+about 270 ms (four 258-byte frames at 38.4 kBaud).
 
 ```bash
 # Planar broadside, geometry + predicted pattern, nothing sent
 python dual_directional_speaker.py --dry-run
 
-# Send to both boards
+# Send to both boards over one shared UART net
+python dual_directional_speaker.py --bus-port COM8
+
+# Or, if each board really has its own host serial port
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7
 
 # Hann taper over the full 331 x 163 mm envelope
@@ -254,6 +274,11 @@ Fine alignment: `--trim N` sends the secondary's `0xE0 0x5A N` command
 (20 ns = 0.288° per step, default 127), and `--trim-sweep START:STOP:STEP
 --trim-dwell S` steps it while you watch a meter.  This needs the secondary
 firmware with `SyncTrim`; the command is only recognised between frames.
+
+On a shared bus the primary also receives the trim value byte and decodes it
+as an ordinary byte, so values that collide with its commands are rejected
+(`150`, `151`, `192`, `193`, `200`–`203`, `253`).  `--bus-port` filters those
+out of a sweep automatically.  The default `127` is safe.
 
 **What the offset does and does not do.**  The 5.25 mm half-pitch shift makes
 the two boards' contributions cancel *exactly at* the **54.75°** grating

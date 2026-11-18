@@ -42,6 +42,13 @@ PCB_MARGIN_TOP_M = 0.0054060
 PRIMARY_SELECT_BYTE = 0xC0
 SECONDARY_SELECT_BYTE = 0xC1
 
+# On a shared UART bus the primary also receives the secondary's trim command.
+# Its value byte is decoded as an ordinary byte by the primary, so values that
+# collide with the primary's own command bytes must never be sent.
+SHARED_BUS_UNSAFE_TRIM_STEPS = frozenset(
+    {150, 151, 192, 193, 200, 201, 202, 203, 253}
+)
+
 PHASE_BINS = protocol.PHASE_BINS
 OFF_VALUE = protocol.OFF_VALUE
 TWO_PI = 2.0 * math.pi
@@ -525,6 +532,111 @@ class BoardLink:
         thread_b.join()
         if errors:
             raise errors[0]
+
+
+class BusLink:
+    """One serial port shared by both boards.
+
+    Both boards listen to the same UART net, so every payload starts with its
+    board-select byte: ``0xC0`` enables the primary and disables the
+    secondary, ``0xC1`` does the reverse.  The two payloads are written one
+    after the other; the disabled board ignores the payload bytes entirely.
+
+    ``serial_factory`` and ``sleep`` are resolved at call time so tests can
+    inject fakes, exactly like :func:`protocol.open_serial`.
+    """
+
+    def __init__(
+        self,
+        port: str,
+        *,
+        baudrate: int = protocol.BAUD_RATE,
+        timeout: float = 2.0,
+        write_timeout: float = 2.0,
+        settle_s: float = 0.3,
+        serial_factory=None,
+        sleep=None,
+    ):
+        if not port:
+            raise ValueError("A serial port is required.")
+        self.port = port
+        self.baudrate = int(baudrate)
+        self.timeout = timeout
+        self.write_timeout = write_timeout
+        self.settle_s = settle_s
+        self._factory = serial_factory
+        self._sleep = sleep
+        self._connection = None
+        self._context = None
+
+    def __enter__(self) -> "BusLink":
+        self.open()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+    def open(self) -> None:
+        if self._connection is not None:
+            raise RuntimeError("BusLink is already open.")
+        context = protocol.open_serial(
+            self.port,
+            self.baudrate,
+            timeout=self.timeout,
+            write_timeout=self.write_timeout,
+            settle_s=self.settle_s,
+            serial_factory=self._factory,
+            sleep=self._sleep,
+        )
+        self._connection = context.__enter__()
+        self._context = context
+
+    def close(self) -> None:
+        context, self._context = self._context, None
+        if context is not None:
+            try:
+                context.__exit__(None, None, None)
+            except Exception:
+                pass
+        self._connection = None
+
+    def _write(self, payload: bytes, what: str = "payload") -> None:
+        if self._connection is None:
+            raise RuntimeError("BusLink is not open.")
+        payload = bytes(payload)
+        written = self._connection.write(payload)
+        self._connection.flush()
+        if written != len(payload):
+            raise OSError(
+                f"Incomplete {what} write: sent {written} of {len(payload)} bytes."
+            )
+
+    def send(self, payload_a: bytes, payload_b: bytes) -> None:
+        """Update both boards on the shared bus.
+
+        Each payload is written twice.  Every ``0xFD`` swaps the current and
+        previous phase registers on *both* boards, while only the enabled
+        board writes new data.  A single A-then-B pass would therefore leave
+        board A showing its previous pattern after B's trailer.  Two writes
+        put the new frame in both of A's registers, and the two trailers of
+        B's pair swap A twice, leaving it unchanged.
+        """
+        for payload in (payload_a, payload_a, payload_b, payload_b):
+            self._write(payload)
+
+    def send_trim(self, steps: int) -> None:
+        """Send the secondary trim command, guarding the primary's decoder.
+
+        The primary sees the command's value byte as an ordinary byte.  Values
+        that collide with its command bytes would change its enable, mode,
+        shift-clock or swap state, so they are rejected on a shared bus.
+        """
+        if steps in SHARED_BUS_UNSAFE_TRIM_STEPS:
+            raise ValueError(
+                f"Trim {steps} collides with a primary board command byte on "
+                "the shared bus; choose a different value."
+            )
+        self._write(protocol.build_trim_command(steps), what="trim")
 
 
 class CombinedBeamAnalyzer:

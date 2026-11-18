@@ -230,6 +230,71 @@ def test_board_link_sends_trim_only_to_secondary():
     assert connection_b.writes == [b"\xe0\x5a\xc8"]
 
 
+def test_bus_link_writes_payloads_in_sequence_on_one_port():
+    factory = _FakeFactory()
+    payload_a = b"\xc0" + bytes([0xFE]) + bytes(256) + bytes([0xFD])
+    payload_b = b"\xc1" + bytes([0xFE]) + bytes(256) + bytes([0xFD])
+    link = dual_board.BusLink("COM8", serial_factory=factory, sleep=lambda _: None)
+    with link:
+        link.send(payload_a, payload_b)
+    assert [connection.port for connection in factory.connections] == ["COM8"]
+    connection = factory.connections[0]
+    assert connection.writes == [payload_a, payload_a, payload_b, payload_b]
+    assert connection.flushed == 4
+    assert connection.closed
+
+
+def test_bus_link_trim_guards_primary_command_values():
+    factory = _FakeFactory()
+    link = dual_board.BusLink("COM8", serial_factory=factory, sleep=lambda _: None)
+    with link:
+        link.send_trim(127)
+        for unsafe in sorted(dual_board.SHARED_BUS_UNSAFE_TRIM_STEPS):
+            with pytest.raises(ValueError):
+                link.send_trim(unsafe)
+    assert factory.connections[0].writes == [b"\xe0\x5a\x7f"]
+
+
+def test_cli_bus_dry_run(capsys):
+    import dual_directional_speaker as cli
+
+    assert cli.main(["--dry-run", "--samples", "21", "--bus-port", "COM8"]) == 0
+    output = capsys.readouterr().out
+    assert "one shared bus port COM8" in output
+    assert "[DRY RUN] no serial data sent." in output
+
+
+def test_cli_bus_port_rejects_board_ports(capsys):
+    import dual_directional_speaker as cli
+
+    assert cli.main(
+        ["--dry-run", "--samples", "21", "--bus-port", "COM8",
+         "--board-a-port", "COM6"]
+    ) == 2
+    assert "not both" in capsys.readouterr().err
+
+
+def test_cli_bus_trim_guard(capsys):
+    import dual_directional_speaker as cli
+
+    assert cli.main(
+        ["--dry-run", "--samples", "21", "--bus-port", "COM8", "--trim", "150"]
+    ) == 2
+    assert "collides" in capsys.readouterr().err
+
+
+def test_cli_bus_sweep_skips_primary_command_values(capsys):
+    import dual_directional_speaker as cli
+
+    assert cli.main(
+        ["--dry-run", "--samples", "21", "--bus-port", "COM8",
+         "--trim-sweep", "148:154:1"]
+    ) == 0
+    output = capsys.readouterr().out
+    assert "skipping trim values" in output
+    assert "trim sweep: 148 149 152 153 154" in output
+
+
 def test_parse_trim_sweep():
     import dual_directional_speaker as cli
 

@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--board-a-port", help="Primary board serial port, e.g. COM6")
     parser.add_argument("--board-b-port", help="Secondary board serial port, e.g. COM7")
+    parser.add_argument(
+        "--bus-port",
+        help="One shared UART port wired to both boards (alternative to "
+             "--board-a-port/--board-b-port); the select byte addresses each board",
+    )
     parser.add_argument("--list-ports", action="store_true", help="List ports and exit")
     parser.add_argument("--dry-run", action="store_true", help="Build and report only")
     parser.add_argument("--baud", type=int, default=protocol.BAUD_RATE)
@@ -271,6 +276,11 @@ def main(argv=None) -> int:
         "wire time per board: "
         f"{protocol.wire_time_s(len(payload_a), args.baud) * 1e3:.1f} ms"
     )
+    if args.bus_port:
+        print(
+            f"control: one shared bus port {args.bus_port} "
+            "(select+frame A, then select+frame B)"
+        )
     report(geometry, analyzer, phases, codes, info, args)
 
     try:
@@ -283,6 +293,39 @@ def main(argv=None) -> int:
         return 2
     if args.trim is not None and sweep is not None:
         print("Use either --trim or --trim-sweep, not both.", file=sys.stderr)
+        return 2
+
+    if args.bus_port and args.trim is not None and (
+        args.trim in dual_board.SHARED_BUS_UNSAFE_TRIM_STEPS
+    ):
+        print(
+            f"--trim {args.trim} collides with a primary command byte on the "
+            "shared bus; choose another value.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.bus_port and sweep is not None:
+        blocked = [
+            value
+            for value in sweep
+            if value in dual_board.SHARED_BUS_UNSAFE_TRIM_STEPS
+        ]
+        if blocked:
+            print(
+                "skipping trim values that collide with primary commands:",
+                " ".join(str(value) for value in blocked),
+            )
+            sweep = [
+                value
+                for value in sweep
+                if value not in dual_board.SHARED_BUS_UNSAFE_TRIM_STEPS
+            ]
+
+    if args.bus_port and (args.board_a_port or args.board_b_port):
+        print(
+            "Use either --bus-port or --board-a-port/--board-b-port, not both.",
+            file=sys.stderr,
+        )
         return 2
 
     if args.dry_run:
@@ -298,18 +341,24 @@ def main(argv=None) -> int:
         print("[DRY RUN] no serial data sent.")
         return 0
 
-    if not args.board_a_port or not args.board_b_port:
+    if not args.dry_run and not args.bus_port and not (
+        args.board_a_port and args.board_b_port
+    ):
         print(
             "Both --board-a-port and --board-b-port are required to transmit "
-            "(or use --dry-run).",
+            "(or use --bus-port / --dry-run).",
             file=sys.stderr,
         )
         return 2
 
     try:
-        with dual_board.BoardLink(
-            args.board_a_port, args.board_b_port, baudrate=args.baud
-        ) as link:
+        if args.bus_port:
+            link = dual_board.BusLink(args.bus_port, baudrate=args.baud)
+        else:
+            link = dual_board.BoardLink(
+                args.board_a_port, args.board_b_port, baudrate=args.baud
+            )
+        with link:
             if sweep is not None:
                 link.send(payload_a, payload_b)
                 for value in sweep:
@@ -323,6 +372,9 @@ def main(argv=None) -> int:
                 link.send(payload_a, payload_b)
     except OSError as error:
         print(f"Serial error: {error}", file=sys.stderr)
+        return 2
+    except ValueError as error:
+        print(f"Trim error: {error}", file=sys.stderr)
         return 2
     print("done")
     return 0
