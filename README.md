@@ -114,7 +114,7 @@ the board keeps its last state.
 | `transducer_onoff_demo.py` | Toggles the whole array ON/OFF at a requested rate, with timestamps. | `--frequency`, `--duration`, `--dry-run` |
 | `onoff.py` | Same toggle, one serial connection per run. | `--frequency`, `--duration`, `--dry-run` |
 | `bit_pattern_onoff.py` | Repeats an 8-bit pattern (`1` = ON, `0` = OFF). | `--pattern`, `--bit-seconds`, `--duration`, `--dry-run` |
-| `mode_control.py` | Sends a mode command byte (`0xC8`/`0xC9`/`0xCA`/`0xCB`) followed by a whole-array frame (all-on by default). | `--mode`, `--frame {on,off,keep}`, `--port`, `--dry-run`, `--list-ports` |
+| `mode_control.py` | Sends a board-select byte, a mode command byte (`0xC8`/`0xC9`/`0xCA`/`0xCB`) and a whole-array frame (all-on by default). | `--mode`, `--frame {on,off,keep}`, `--board {a,b,both}`, `--port`, `--dry-run`, `--list-ports` |
 
 The `--frequency` on these scripts is the ON/OFF envelope rate, not the
 carrier. `transducer_onoff_steer.py` also sends an OFF frame before exiting.

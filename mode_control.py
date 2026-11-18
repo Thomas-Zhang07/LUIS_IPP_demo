@@ -46,6 +46,13 @@ DEFAULT_MODE = "c4"
 FRAME_CHOICES = ("on", "off", "keep")
 DEFAULT_FRAME = "on"
 
+# Board-select bytes.  On a shared UART bus 0xC0 enables the primary and
+# disables the secondary; 0xC1 does the reverse.  The byte must precede the
+# mode command and frame so the addressed board latches the frame.
+BOARD_SELECT_BYTES = {"a": 0xC0, "b": 0xC1}
+BOARD_CHOICES = ("a", "b", "both")
+DEFAULT_BOARD = "a"
+
 
 def build_mode_payload(mode: str = DEFAULT_MODE, frame: str = DEFAULT_FRAME) -> bytes:
     """Return the command byte followed by the requested whole-array frame.
@@ -65,6 +72,36 @@ def build_mode_payload(mode: str = DEFAULT_MODE, frame: str = DEFAULT_FRAME) -> 
     if frame == "keep":
         return bytes([command])
     raise ValueError(f"Unknown frame {frame!r}.")
+
+
+def build_board_payloads(
+    mode: str = DEFAULT_MODE,
+    frame: str = DEFAULT_FRAME,
+    board: str = DEFAULT_BOARD,
+) -> list[bytes]:
+    """Return one select+mode+frame payload per addressed board.
+
+    Each payload is repeated twice.  Every frame trailer swaps the current and
+    previous phase registers on both boards, so two copies are needed for the
+    addressed board both registers to hold the new frame and for the other
+    board to see an even number of swaps (unchanged).  ``board="both"``
+    returns primary (twice) then secondary (twice).  The mode byte itself is
+    not board-addressed in the firmware, so both boards change mode together.
+    """
+    payload = build_mode_payload(mode, frame)
+    if board == "both":
+        return [
+            bytes([BOARD_SELECT_BYTES["a"]]) + payload,
+            bytes([BOARD_SELECT_BYTES["a"]]) + payload,
+            bytes([BOARD_SELECT_BYTES["b"]]) + payload,
+            bytes([BOARD_SELECT_BYTES["b"]]) + payload,
+        ]
+    try:
+        select = BOARD_SELECT_BYTES[board]
+    except KeyError as error:
+        raise ValueError(f"Unknown board {board!r}.") from error
+    selected = bytes([select]) + payload
+    return [selected, selected]
 
 
 def main() -> None:
@@ -89,6 +126,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--board",
+        choices=BOARD_CHOICES,
+        default=DEFAULT_BOARD,
+        help=(
+            "Board to address: a = primary (0xC0), b = secondary (0xC1), "
+            "both = primary then secondary in sequence (default a)"
+        ),
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Show the payload without opening a port"
     )
     parser.add_argument(
@@ -100,19 +146,22 @@ def main() -> None:
         print_available_ports()
         return
 
-    payload = build_mode_payload(args.mode, args.frame)
-    command = payload[0]
+    payloads = build_board_payloads(args.mode, args.frame, args.board)
+    command = payloads[0][1]  # payload[0] is the board-select byte
     print(f"Mode: {args.mode} (0x{command:02X})")
     if args.frame == "keep":
         print("Payload: 1 byte (mode command only; phase pattern kept)")
     else:
         print(
-            f"Payload: {len(payload)} bytes "
+            f"Payload: {len(payloads[0]) - 1} bytes "
             f"(1 command + 258-byte {args.frame.upper()} frame)"
         )
+    for payload in payloads:
+        print(f"select 0x{payload[0]:02X}: {len(payload)} bytes")
 
     if args.dry_run:
-        print(payload.hex(" "))
+        for payload in payloads:
+            print(payload.hex(" "))
         print("[DRY RUN] No serial data sent.")
         return
 
@@ -126,7 +175,8 @@ def main() -> None:
 
     try:
         with open_serial(port) as connection:
-            send_frame(connection, payload)
+            for payload in payloads:
+                send_frame(connection, payload)
     except OSError as error:
         print(f"Serial error: {error}")
         return

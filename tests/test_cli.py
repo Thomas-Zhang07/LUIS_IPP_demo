@@ -51,7 +51,9 @@ EXPECTED_FLAGS = {
         "--update-interval", "--duration", "--plot-phase-rotation",
         "--plot-array-factor", "--frequency", "--sound-speed",
     },
-    "mode_control.py": {"--port", "--mode", "--frame", "--dry-run", "--list-ports"},
+    "mode_control.py": {
+        "--port", "--mode", "--frame", "--board", "--dry-run", "--list-ports",
+    },
     "directional_speaker.py": {
         "--alpha", "--beta", "--frequency", "--sound-speed",
         "--density-window", "--keep-fraction", "--seed", "--dither-bins",
