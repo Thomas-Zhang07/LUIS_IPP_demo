@@ -240,6 +240,35 @@ def build_trim_command(steps: int) -> bytes:
     return bytes([TRIM_PREFIX, TRIM_MAGIC, steps])
 
 
+def validate_channel_frame(frame: bytes) -> bytes:
+    """Return ``frame`` if it is a complete, decoder-safe channel frame.
+
+    A valid frame is ``0xFE + 256 channel bytes + 0xFD`` with no interior
+    byte that the documented decoders treat as a command (swap, address
+    reset, board select, clock or mode) and no ``0x18``, which a 0/8-bin
+    phase correction can turn into the OFF code.
+    """
+    frame = bytes(frame)
+    if len(frame) != FRAME_SIZE:
+        raise ValueError(
+            f"Expected a {FRAME_SIZE}-byte frame, got {len(frame)}."
+        )
+    if frame[0] != HEADER or frame[-1] != FOOTER:
+        raise ValueError("Frame must start with 0xFE and end with 0xFD.")
+    for address, byte in enumerate(frame[1:-1]):
+        if byte in DECODER_COMMAND_BYTES:
+            raise ValueError(
+                f"Wire address {address}: 0x{byte:02X} is a decoder command, "
+                "not channel data."
+            )
+        if byte == OFF_ALIAS_BYTE:
+            raise ValueError(
+                f"Wire address {address}: 0x{byte:02X} can decode as OFF "
+                "after a 0/8-bin correction."
+            )
+    return frame
+
+
 def build_uniform_frame(value: int) -> bytes:
     """Build a frame that applies the same value to every transducer."""
     if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
@@ -247,7 +276,8 @@ def build_uniform_frame(value: int) -> bytes:
     if not 0 <= int(value) <= 0xFF:
         raise ValueError("value must be an integer in the range 0..255")
     payload = bytes([int(value)]) * N_EMITTERS
-    return bytes([HEADER]) + payload + bytes([FOOTER])
+    frame = bytes([HEADER]) + payload + bytes([FOOTER])
+    return validate_channel_frame(frame)
 
 
 def build_on_frame() -> bytes:

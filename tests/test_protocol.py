@@ -231,6 +231,44 @@ def test_build_amplitude_frame_validates_inputs():
         protocol.build_amplitude_frame(off, codes, allow_off=False)
 
 
+def test_validate_channel_frame_rejects_decoder_commands():
+    for byte in sorted(protocol.DECODER_COMMAND_BYTES) + [protocol.OFF_ALIAS_BYTE]:
+        frame = (
+            bytes([protocol.HEADER])
+            + bytes([byte]) * N_EMITTERS
+            + bytes([protocol.FOOTER])
+        )
+        with pytest.raises(ValueError):
+            protocol.validate_channel_frame(frame)
+
+
+def test_validate_channel_frame_accepts_on_off_and_amplitude():
+    frames = (
+        protocol.build_on_frame(),
+        protocol.build_off_frame(),
+        protocol.build_amplitude_frame(
+            _values(), np.full(N_EMITTERS, 7, int)
+        ),
+    )
+    for frame in frames:
+        assert protocol.validate_channel_frame(frame) == frame
+
+
+def test_validate_channel_frame_rejects_bad_layout():
+    with pytest.raises(ValueError):
+        protocol.validate_channel_frame(b"\xfe" + bytes(N_EMITTERS))
+    with pytest.raises(ValueError):
+        protocol.validate_channel_frame(b"\x00" + bytes(N_EMITTERS) + b"\xfd")
+
+
+def test_build_uniform_frame_rejects_decoder_commands():
+    with pytest.raises(ValueError):
+        protocol.build_uniform_frame(0xFD)
+    assert protocol.build_uniform_frame(protocol.OFF_VALUE)[1:-1] == (
+        bytes([0x10]) * N_EMITTERS
+    )
+
+
 def test_wire_time_and_max_toggle_frequency():
     expected_wire = 258 * 10 / 38400
     assert protocol.wire_time_s() == pytest.approx(expected_wire)
