@@ -110,6 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Sweep the secondary trim after sending the beam")
     parser.add_argument("--trim-dwell", type=float, default=2.0, metavar="S",
                         help="Dwell time per sweep point in seconds (default 2)")
+    parser.add_argument("--board-a-phase-offset", type=int, default=0, metavar="BINS",
+                        help="Add N phase bins (0..15) to every primary channel; "
+                             "use 8 to cancel a 180 deg board-to-board offset")
+    parser.add_argument("--board-b-phase-offset", type=int, default=0, metavar="BINS",
+                        help="Add N phase bins (0..15) to every secondary channel; "
+                             "use 8 to cancel a 180 deg board-to-board offset")
     return parser
 
 
@@ -190,8 +196,13 @@ def build_plan(args):
     else:
         info = {"sweeps_run": 0, "changed_elements": 0}
 
+    # Hardware compensation: a constant phase offset per board (e.g. 8 bins
+    # for a board whose driver stage inverts the carrier).  The beam model
+    # keeps the desired phases; only the bytes sent are shifted.
+    payload_bins_a = (np.asarray(bins_a) + args.board_a_phase_offset) % 16
+    payload_bins_b = (np.asarray(bins_b) + args.board_b_phase_offset) % 16
     payload_a, payload_b = dual_board.build_payloads(
-        geometry, bins_a, bins_b, codes_a, codes_b
+        geometry, payload_bins_a, payload_bins_b, codes_a, codes_b
     )
     return geometry, analyzer, phases, codes, payload_a, payload_b, info
 
@@ -211,6 +222,11 @@ def report(geometry, analyzer, phases, codes, info, args) -> None:
         )
     )
     print(f"taper: {args.amplitude_window}")
+    if args.board_a_phase_offset or args.board_b_phase_offset:
+        print(
+            f"hardware phase offset: A +{args.board_a_phase_offset} bins, "
+            f"B +{args.board_b_phase_offset} bins"
+        )
     if info["sweeps_run"]:
         print(
             f"optimizer: {info['sweeps_run']} sweeps, "
