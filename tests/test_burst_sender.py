@@ -51,6 +51,32 @@ def test_plan_rejects_high_code_without_ack():
     assert plan
 
 
+def test_plan_gates_by_pulse_width_not_numeric_code():
+    # Code 0 is full scale (width 8), the same as 15.
+    with pytest.raises(ValueError):
+        bs.build_burst_plan(
+            bs.GATE_SWAP, amplitude_code=0, repeats=1, dwell_s=0.004, gap_s=0.1
+        )
+    # Code 3 is wider than the default code 2.
+    with pytest.raises(ValueError):
+        bs.build_burst_plan(
+            bs.GATE_SWAP, amplitude_code=3, repeats=1, dwell_s=0.004, gap_s=0.1
+        )
+    # Code 1 has the same width as the default 2 and is allowed.
+    assert bs.build_burst_plan(
+        bs.GATE_SWAP, amplitude_code=1, repeats=1, dwell_s=0.004, gap_s=0.1
+    )
+    # Only the explicit flag admits full scale.
+    assert bs.build_burst_plan(
+        bs.GATE_SWAP,
+        amplitude_code=0,
+        repeats=1,
+        dwell_s=0.004,
+        gap_s=0.1,
+        allow_high_amplitude=True,
+    )
+
+
 class FakeLink:
     def __init__(self):
         self.calls = []

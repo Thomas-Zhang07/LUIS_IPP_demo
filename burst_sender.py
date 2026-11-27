@@ -32,7 +32,7 @@ if str(DEMO_DIR) not in sys.path:
 
 import dual_board  # noqa: E402
 import protocol  # noqa: E402
-from directivity import amplitude_from_code  # noqa: E402
+from directivity import amplitude_from_code, duty_width_from_code  # noqa: E402
 from emitters import N_EMITTERS  # noqa: E402
 
 GATE_SWAP = "swap"
@@ -45,7 +45,7 @@ PRIMARY_SELECT = 0xC0
 SECONDARY_SELECT = 0xC1
 
 DEFAULT_AMPLITUDE_CODE = 2  # width 1, about -14 dB
-MAX_DEFAULT_AMPLITUDE_CODE = 2
+MAX_DEFAULT_WIDTH = duty_width_from_code(DEFAULT_AMPLITUDE_CODE)  # 1
 
 
 @dataclass(frozen=True)
@@ -105,11 +105,14 @@ def build_burst_plan(
         raise ValueError("repeats must be at least 1.")
     if dwell_s < 0.0 or gap_s < 0.0:
         raise ValueError("dwell and gap must be non-negative.")
-    if amplitude_code > MAX_DEFAULT_AMPLITUDE_CODE and not allow_high_amplitude:
+    if (
+        not allow_high_amplitude
+        and duty_width_from_code(amplitude_code) > MAX_DEFAULT_WIDTH
+    ):
         raise ValueError(
-            f"amplitude code {amplitude_code} is above the low-output default "
-            f"({MAX_DEFAULT_AMPLITUDE_CODE}); pass --allow-high-amplitude to "
-            "use it."
+            f"amplitude code {amplitude_code} is wider than the low-output "
+            f"default (width {MAX_DEFAULT_WIDTH}); pass --allow-high-amplitude "
+            "to use it. Codes 0 and 15 are full scale."
         )
     on_frame = build_on_frame(amplitude_code)
     off_frame = protocol.validate_channel_frame(protocol.build_off_frame())
@@ -148,7 +151,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--amplitude-code", type=int, default=DEFAULT_AMPLITUDE_CODE,
-        help=f"ON-frame amplitude code 0..15 (default {DEFAULT_AMPLITUDE_CODE})",
+        help=f"ON-frame amplitude code 0..15; 0 and 15 are full scale "
+             f"(default {DEFAULT_AMPLITUDE_CODE} = width 1)",
     )
     parser.add_argument(
         "--allow-high-amplitude", action="store_true",
@@ -210,8 +214,14 @@ def main(argv=None) -> int:
     print(f"gate: {args.gate}, repeats: {args.repeats}")
     print(
         f"amplitude code: {args.amplitude_code} "
-        f"({_relative_amplitude_db(args.amplitude_code):+.1f} dB vs full width)"
+        f"({_relative_amplitude_db(args.amplitude_code):+.1f} dB vs the "
+        "full-scale code)"
     )
+    if duty_width_from_code(args.amplitude_code) > MAX_DEFAULT_WIDTH:
+        print(
+            "WARNING: full-scale/high output selected; keep the physical "
+            "inhibit until the approved capture."
+        )
     print(f"dwell: {args.dwell_ms:g} ms, gap: {args.gap_ms:g} ms")
     print(f"steps: {len(steps)} ({frames} full frames, {toggles} toggles)")
     print(
@@ -220,7 +230,7 @@ def main(argv=None) -> int:
     )
     print(
         "keep the physical output inhibit until an approved capture; the ON "
-        "frame requests the selected full-width code, not a calibrated level."
+        "frame requests the selected pulse code, not a calibrated level."
     )
 
     if args.dry_run:
