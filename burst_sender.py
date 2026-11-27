@@ -18,6 +18,7 @@ about -14 dB).  A higher code needs ``--allow-high-amplitude``.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import time
 from dataclasses import dataclass
@@ -29,7 +30,9 @@ DEMO_DIR = Path(__file__).resolve().parent
 if str(DEMO_DIR) not in sys.path:
     sys.path.insert(0, str(DEMO_DIR))
 
+import dual_board  # noqa: E402
 import protocol  # noqa: E402
+from directivity import amplitude_from_code  # noqa: E402
 from emitters import N_EMITTERS  # noqa: E402
 
 GATE_SWAP = "swap"
@@ -124,3 +127,127 @@ def build_burst_plan(
         if repeat < repeats - 1:
             steps.append(_toggle_step(dwell_s))
     return steps
+
+
+def run_burst(link, steps, sleep=time.sleep) -> None:
+    """Write every step to both boards, then sleep its delay."""
+    for step in steps:
+        link.send(step.payload_a, step.payload_b)
+        sleep(step.delay_s)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--gate", choices=GATES, default=GATE_SWAP,
+        help="swap = FE+FD bank toggle (~0.5 ms edges); "
+             "frame = full ON/OFF frames (~67 ms minimum)",
+    )
+    parser.add_argument(
+        "--amplitude-code", type=int, default=DEFAULT_AMPLITUDE_CODE,
+        help=f"ON-frame amplitude code 0..15 (default {DEFAULT_AMPLITUDE_CODE})",
+    )
+    parser.add_argument(
+        "--allow-high-amplitude", action="store_true",
+        help="permit an amplitude code above the low-output default",
+    )
+    parser.add_argument("--dwell-ms", type=float, default=4.0,
+                        help="burst length after the ON edge (default 4 ms)")
+    parser.add_argument("--gap-ms", type=float, default=100.0,
+                        help="off time between repeats (default 100 ms)")
+    parser.add_argument("--repeats", type=int, default=1,
+                        help="number of bursts (default 1)")
+    parser.add_argument("--port-a", help="primary board serial port")
+    parser.add_argument("--port-b", help="secondary board serial port")
+    parser.add_argument("--trim", type=int, default=None,
+                        help="send this secondary trim before the burst")
+    parser.add_argument("--baud", type=int, default=protocol.BAUD_RATE)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print the plan without opening a port")
+    parser.add_argument("--list-ports", action="store_true",
+                        help="list serial ports and exit")
+    return parser
+
+
+def _relative_amplitude_db(code: int) -> float:
+    return 20.0 * math.log10(max(amplitude_from_code(code), 1e-12))
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
+
+    if args.list_ports:
+        from serial_utils import print_available_ports
+
+        print_available_ports()
+        return 0
+
+    try:
+        steps = build_burst_plan(
+            args.gate,
+            amplitude_code=args.amplitude_code,
+            repeats=args.repeats,
+            dwell_s=args.dwell_ms / 1000.0,
+            gap_s=args.gap_ms / 1000.0,
+            allow_high_amplitude=args.allow_high_amplitude,
+        )
+    except ValueError as error:
+        print(f"Cannot build the burst plan: {error}", file=sys.stderr)
+        return 2
+
+    if args.trim is not None and not 0 <= args.trim <= 255:
+        print("--trim must be 0..255.", file=sys.stderr)
+        return 2
+
+    frames = sum(
+        1 for step in steps
+        if step.payload_a[:1] in (bytes([PRIMARY_SELECT]), bytes([SECONDARY_SELECT]))
+    )
+    toggles = sum(1 for step in steps if step.payload_a == TOGGLE)
+    print(f"gate: {args.gate}, repeats: {args.repeats}")
+    print(
+        f"amplitude code: {args.amplitude_code} "
+        f"({_relative_amplitude_db(args.amplitude_code):+.1f} dB vs full width)"
+    )
+    print(f"dwell: {args.dwell_ms:g} ms, gap: {args.gap_ms:g} ms")
+    print(f"steps: {len(steps)} ({frames} full frames, {toggles} toggles)")
+    print(
+        "timing is host-limited; take the start reference from the first "
+        "carrier edge after silence and verify it on the scope."
+    )
+    print(
+        "keep the physical output inhibit until an approved capture; the ON "
+        "frame requests the selected full-width code, not a calibrated level."
+    )
+
+    if args.dry_run:
+        print("[DRY RUN] no serial data sent.")
+        return 0
+
+    if not (args.port_a and args.port_b):
+        print(
+            "Both --port-a and --port-b are required (or use --dry-run).",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        link = dual_board.BoardLink(args.port_a, args.port_b, baudrate=args.baud)
+        with link:
+            if args.trim is not None:
+                link.send_trim(args.trim)
+                print(f"trim {args.trim}")
+            run_burst(link, steps)
+    except OSError as error:
+        print(f"Serial error: {error}", file=sys.stderr)
+        return 2
+
+    print("done")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

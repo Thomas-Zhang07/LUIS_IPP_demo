@@ -49,3 +49,31 @@ def test_plan_rejects_high_code_without_ack():
         allow_high_amplitude=True,
     )
     assert plan
+
+
+class FakeLink:
+    def __init__(self):
+        self.calls = []
+
+    def send(self, payload_a, payload_b):
+        self.calls.append((bytes(payload_a), bytes(payload_b)))
+
+
+def test_run_burst_writes_steps_and_sleeps():
+    link, sleeps = FakeLink(), []
+    steps = bs.build_burst_plan(bs.GATE_SWAP, 2, 2, 0.004, 0.1)
+    bs.run_burst(link, steps, sleep=sleeps.append)
+    assert [(a[0], b[0]) for a, b in link.calls] == (
+        [(0xC0, 0xC1)] * 3 + [(0xFE, 0xFE)] * 3
+    )
+    assert sleeps == [0.0, 0.0, 0.004, 0.1, 0.004, 0.1]
+
+
+def test_cli_rejects_high_amplitude_without_ack():
+    assert bs.main(["--dry-run", "--amplitude-code", "15"]) == 2
+    assert (
+        bs.main(
+            ["--dry-run", "--amplitude-code", "15", "--allow-high-amplitude"]
+        )
+        == 0
+    )
