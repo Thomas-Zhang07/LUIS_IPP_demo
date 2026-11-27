@@ -104,6 +104,83 @@ def test_offset_leaves_split_lobes_beside_the_null():
     assert metrics["grating_lobe_db"][0.0] < -20.0
 
 
+DECODER_COMMAND_BYTES = frozenset(
+    {0x96, 0x97, 0xC0, 0xC1, 0xC8, 0xC9, 0xCA, 0xCB, 0xFD, 0xFE}
+)
+
+
+def _replay_decoder(payload):
+    """Replay one board payload through the documented Distribute ordering.
+
+    The VHDL tests the command bytes before the channel-write branch, so an
+    interior FD/FE resets or swaps instead of writing a channel.  Returns the
+    written addresses and the number of swap edges.
+    """
+    address = 0
+    writes = []
+    swaps = 0
+    for byte in payload:
+        if byte in (0xC0, 0xC1):
+            continue  # board select, sent outside the frame
+        if byte in (0x96, 0x97, 0xC8, 0xC9, 0xCA, 0xCB):
+            continue  # clock and mode commands
+        if byte == 0xFE:
+            address = 0
+        elif byte == 0xFD:
+            swaps += 1
+            address = 0
+        elif address < 256:
+            writes.append(address)
+            address += 1
+    return writes, swaps
+
+
+def _steered_payloads(window):
+    geometry = dual_board.BoardGeometry()
+    bins_a, bins_b = dual_board.board_phase_bins(
+        geometry, azimuth_degrees=0.0, off_axis_degrees=20.0
+    )
+    codes = dual_board.amplitude_codes_from_weights(
+        dual_board.amplitude_window_weights(geometry, window)
+    )
+    codes_a, codes_b = dual_board.split_by_board(codes)
+    return dual_board.build_payloads(geometry, bins_a, bins_b, codes_a, codes_b)
+
+
+def test_steered_payloads_contain_no_decoder_commands():
+    payload_a, payload_b = _steered_payloads("none")
+    for payload in (payload_a, payload_b):
+        body = payload[2:-1]
+        offenders = [hex(b) for b in body if b in DECODER_COMMAND_BYTES]
+        assert offenders == []
+
+
+@pytest.mark.parametrize("window", ["hann", "gaussian", "blackman", "tukey"])
+def test_tapered_steered_payloads_contain_no_decoder_commands(window):
+    payload_a, payload_b = _steered_payloads(window)
+    for payload in (payload_a, payload_b):
+        body = payload[2:-1]
+        offenders = [hex(b) for b in body if b in DECODER_COMMAND_BYTES]
+        assert offenders == []
+
+
+def test_steered_payloads_replay_as_one_ordered_frame_per_board():
+    payload_a, payload_b = _steered_payloads("none")
+    for payload in (payload_a, payload_b):
+        writes, swaps = _replay_decoder(payload)
+        assert writes == list(range(256))
+        assert swaps == 1
+
+
+@pytest.mark.parametrize("window", ["hann", "gaussian", "blackman", "tukey"])
+def test_tapered_steered_payloads_replay_as_one_ordered_frame(window):
+    payload_a, payload_b = _steered_payloads(window)
+    for payload in (payload_a, payload_b):
+        writes, swaps = _replay_decoder(payload)
+        assert writes == list(range(256))
+        assert swaps == 1
+
+
 def test_amplitude_window_codes_are_valid_and_taper_edges():
     geometry = dual_board.BoardGeometry()
     weights = dual_board.amplitude_window_weights(geometry, "hann")

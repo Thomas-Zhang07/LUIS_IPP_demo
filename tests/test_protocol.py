@@ -159,6 +159,30 @@ def test_amplitude_payload_byte_layout_and_off_collision():
         protocol.amplitude_payload_byte(0, 16)
 
 
+DECODER_COMMAND_BYTES = frozenset(
+    {0x96, 0x97, 0xC0, 0xC1, 0xC8, 0xC9, 0xCA, 0xCB, 0xFD, 0xFE}
+)
+
+
+def _firmware_pulse_width(code):
+    """Mirror AllChannels.vhd ``pulse_width`` for the equivalence check."""
+    if code == 0 or code >= 15:
+        return 8
+    return (code + 1) // 2
+
+
+def test_amplitude_payload_byte_never_encodes_a_decoder_command():
+    for phase in range(protocol.PHASE_BINS):
+        for code in range(protocol.AMPLITUDE_CODES):
+            byte = protocol.amplitude_payload_byte(phase, code)
+            assert byte not in DECODER_COMMAND_BYTES, (phase, code, hex(byte))
+            # 0x10 is OFF and 0x18 can alias to OFF after a 0/8-bin correction.
+            assert byte not in (protocol.OFF_VALUE, 0x18), (phase, code, hex(byte))
+            # The remap must keep the commanded phase and pulse width.
+            assert (byte & 0x0F) == phase, (phase, code, hex(byte))
+            assert _firmware_pulse_width(byte >> 4) == _firmware_pulse_width(code)
+
+
 def test_build_amplitude_frame_layout_and_order():
     phases = _values()
     codes = (np.arange(N_EMITTERS, dtype=int) % 15) + 1

@@ -82,13 +82,61 @@ def build_frame(
     return bytes([HEADER]) + payload + bytes([FOOTER])
 
 
+# Bytes the documented Distribute decoders test before the channel-write
+# branch.  A payload byte equal to one of these acts as a command (swap,
+# address reset, board select, clock or mode change), not as a channel, so
+# the encoder must never place one inside the 256-byte payload.
+DECODER_COMMAND_BYTES = frozenset(
+    {0x96, 0x97, 0xC0, 0xC1, 0xC8, 0xC9, 0xCA, 0xCB, 0xFD, 0xFE}
+)
+
+# 0x18 is code 1 / phase 8.  The decoder adds 0 or 8 to the low nibble from
+# its phase-correction table, so at an address corrected by 8 this becomes
+# 0x10, the OFF code.  The encoder avoids it without knowing the address.
+OFF_ALIAS_BYTE = 0x18
+
+
+def _pulse_width(code: int) -> int:
+    """Firmware pulse width for an amplitude code (mirrors AllChannels.vhd)."""
+    if code == 0 or code >= 15:
+        return 8
+    return (code + 1) // 2
+
+
+def _equivalent_codes(code: int) -> list[int]:
+    """Codes that give the same pulse width as ``code``.
+
+    The firmware maps two codes to every width, so a colliding encoding can
+    be swapped for its twin without changing the phase or the duty.
+    """
+    width = _pulse_width(code)
+    return [
+        candidate
+        for candidate in range(AMPLITUDE_CODES)
+        if _pulse_width(candidate) == width
+    ]
+
+
+def _wire_byte_is_safe(byte: int) -> bool:
+    return (
+        byte not in DECODER_COMMAND_BYTES
+        and byte != OFF_VALUE
+        and byte != OFF_ALIAS_BYTE
+    )
+
+
 def amplitude_payload_byte(phase_bin: int, amplitude_code: int) -> int:
     """Return the wire byte for one phase bin and amplitude code.
 
-    The payload byte is ``amplitude_code << 4 | phase_bin``.  ``0x10`` is
-    reserved for OFF, so the single colliding combination (amplitude code 1,
-    phase 0) is bumped to code 2; both select the same one-step pulse width
-    in the firmware.  A code of :data:`OFF_VALUE` mutes the channel.
+    The direct payload byte is ``amplitude_code << 4 | phase_bin``.  Several
+    bytes are decoder commands, and ``0x10``/``0x18`` can select OFF, so a
+    direct encoding that collides is replaced by the equivalent code with the
+    same pulse width (for example code 15 / phase 13 gives 0xFD, the trailer
+    swap, and is sent as code 0 / phase 13 = 0x0D).  Phase and duty are
+    unchanged; only the redundant high-nibble representation differs.
+
+    A code of :data:`OFF_VALUE` mutes the channel in
+    :func:`build_amplitude_frame`; this function returns channel data only.
     """
     if isinstance(phase_bin, bool) or not isinstance(phase_bin, (int, np.integer)):
         raise ValueError("phase_bin must be an integer.")
@@ -104,9 +152,18 @@ def amplitude_payload_byte(phase_bin: int, amplitude_code: int) -> int:
         raise ValueError(
             f"amplitude_code must be between 0 and {MAX_AMPLITUDE_CODE}."
         )
-    if amplitude_code == 1 and phase_bin == 0:
-        amplitude_code = 2
-    return (amplitude_code << 4) | phase_bin
+    candidates = _equivalent_codes(amplitude_code)
+    candidates = [amplitude_code] + [
+        candidate for candidate in candidates if candidate != amplitude_code
+    ]
+    for candidate in candidates:
+        byte = (candidate << 4) | phase_bin
+        if _wire_byte_is_safe(byte):
+            return byte
+    raise ValueError(
+        f"No safe encoding for phase {phase_bin}, amplitude code "
+        f"{amplitude_code}."
+    )
 
 
 def build_amplitude_frame(
