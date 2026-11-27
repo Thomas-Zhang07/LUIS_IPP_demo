@@ -342,6 +342,26 @@ The optimizer changes only ON elements; it never re-enables a thinned element.
 `--dither-bins` is included for experiments but measured to raise the
 non-grating floor and cost main-lobe gain, so it is not recommended on its own.
 
+### Gated bursts
+
+`burst_sender.py` emits isolated, low-output bursts for bench and acoustic
+work. The documented firmware has no fast acoustic mute, so the host gates
+the latched `PhaseLine` banks:
+
+- `--gate swap` (default) primes both banks OFF, loads one ON frame, then
+  toggles with `0xFE, 0xFD` pairs (~0.5 ms per transition).
+- `--gate frame` alternates full ON and OFF frames (~67 ms minimum burst).
+
+The ON frame uses amplitude code 2 (width 1, about −14 dB) by default; a
+higher code requires `--allow-high-amplitude`. Timing is host-limited, and
+there is no dedicated electrical start strobe: use the first carrier edge
+after silence as the reference and verify it on the scope.
+
+```bash
+python burst_sender.py --dry-run --gate swap --dwell-ms 4 --repeats 3
+python burst_sender.py --port-a COM7 --port-b COM6 --gate swap --dwell-ms 4
+```
+
 ## Notes and limitations
 
 - **Phase sign (hardware-verify):** focusing computes `−k·d` while plane-wave
