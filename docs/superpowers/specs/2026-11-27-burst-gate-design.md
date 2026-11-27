@@ -61,8 +61,9 @@ New `demo/burst_sender.py`:
 - `--dwell-ms` (burst length after the ON edge), `--gap-ms` (off time between
   repeats), `--repeats`.
 - `--amplitude-code` default `2` (width 1 ≈ −14 dB); reject `0x10`.
-- `--low-output-confirmed` required to use a code above 2, so full-width drive
-  is never the accidental default.
+- `--allow-high-amplitude` required for any pulse width wider than code 2
+  (including codes 0 and 15, both full scale), so full-width drive is never
+  the accidental default.
 - Sequence (`swap`): send the OFF frame twice to prime both banks OFF, send
   the ON frame, then per repeat send `FE, FD` to go OFF after the dwell and
   `FE, FD` to go ON for the next repeat.

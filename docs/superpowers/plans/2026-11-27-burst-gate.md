@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- ON frame default amplitude code `2` (width 1, ≈−14 dB); code >2 requires `--allow-high-amplitude`.
+- ON frame default amplitude code `2` (width 1, ≈−14 dB); any wider width (including codes 0 and 15, both full scale) requires `--allow-high-amplitude`.
 - OFF frame is `0xFE + 256 × 0x10 + 0xFD`; ON frame is `0xFE + 256 × (code<<4) + 0xFD`.
 - A swap needs a rising edge: every toggle payload is exactly `bytes([0xFE, 0xFD])`.
 - Frame select bytes: A = `0xC0`, B = `0xC1`.

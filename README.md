@@ -352,8 +352,9 @@ the latched `PhaseLine` banks:
   toggles with `0xFE, 0xFD` pairs (~0.5 ms per transition).
 - `--gate frame` alternates full ON and OFF frames (~67 ms minimum burst).
 
-The ON frame uses amplitude code 2 (width 1, about −14 dB) by default; a
-higher code requires `--allow-high-amplitude`. Timing is host-limited, and
+The ON frame uses amplitude code 2 (width 1, about −14 dB) by default.
+Codes 0 and 15 are both full scale, and any width wider than code 2 requires
+`--allow-high-amplitude`. Timing is host-limited, and
 there is no dedicated electrical start strobe: use the first carrier edge
 after silence as the reference and verify it on the scope.
 
