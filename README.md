@@ -434,6 +434,7 @@ mode_control.py                mode command + phase frame
 wire_probe.py                  wire-address probe for oscilloscope tests
 table_test.py                  phase-table checks
 table_fingerprint.py           phase-table fingerprint tool
+table_cancel_test.py           per-board phase-table cancellation diagnostic
 orbit_test.py                  orbit diagnostic
 tests/                         hardware-free pytest suite
 ```
