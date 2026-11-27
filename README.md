@@ -431,6 +431,7 @@ directional_speaker.py         steering + beam shaping + comparison
 dual_directional_speaker.py    two-board steering/focus + combined report
 onoff.py, bit_pattern_onoff.py ON/OFF and pattern generators
 mode_control.py                mode command + phase frame
+burst_sender.py                gated low-output burst sender
 wire_probe.py                  wire-address probe for oscilloscope tests
 table_test.py                  phase-table checks
 table_fingerprint.py           phase-table fingerprint tool
