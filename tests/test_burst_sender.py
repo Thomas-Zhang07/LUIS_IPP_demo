@@ -95,6 +95,35 @@ def test_run_burst_writes_steps_and_sleeps():
     assert sleeps == [0.0, 0.0, 0.004, 0.1, 0.004, 0.1]
 
 
+def test_plan_rejects_non_finite_delay():
+    for bad in (float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            bs.build_burst_plan(bs.GATE_SWAP, 2, 1, bad, 0.1)
+        with pytest.raises(ValueError):
+            bs.build_burst_plan(bs.GATE_SWAP, 2, 1, 0.004, bad)
+
+
+def test_run_burst_sends_trim_after_first_frame():
+    link = FakeLink()
+    link.trim = None
+    link.order = []
+
+    def send(a, b):
+        link.order.append("send")
+        link.calls.append((bytes(a), bytes(b)))
+
+    def send_trim(steps):
+        link.trim = steps
+        link.order.append("trim")
+
+    link.send = send
+    link.send_trim = send_trim
+    steps = bs.build_burst_plan(bs.GATE_SWAP, 2, 1, 0.004, 0.1)
+    bs.run_burst(link, steps, sleep=lambda _: None, trim=16)
+    assert link.trim == 16
+    assert link.order[:2] == ["send", "trim"]
+
+
 def test_cli_rejects_high_amplitude_without_ack():
     assert bs.main(["--dry-run", "--amplitude-code", "15"]) == 2
     assert (

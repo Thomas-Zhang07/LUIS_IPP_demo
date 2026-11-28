@@ -41,8 +41,8 @@ GATES = (GATE_SWAP, GATE_FRAME)
 
 # FE deasserts the swap line, FD gives the rising edge.
 TOGGLE = bytes([protocol.HEADER, protocol.FOOTER])
-PRIMARY_SELECT = 0xC0
-SECONDARY_SELECT = 0xC1
+PRIMARY_SELECT = dual_board.PRIMARY_SELECT_BYTE
+SECONDARY_SELECT = dual_board.SECONDARY_SELECT_BYTE
 
 DEFAULT_AMPLITUDE_CODE = 2  # width 1, about -14 dB
 MAX_DEFAULT_WIDTH = duty_width_from_code(DEFAULT_AMPLITUDE_CODE)  # 1
@@ -103,8 +103,13 @@ def build_burst_plan(
         raise ValueError(f"gate must be one of {', '.join(GATES)}.")
     if repeats < 1:
         raise ValueError("repeats must be at least 1.")
-    if dwell_s < 0.0 or gap_s < 0.0:
-        raise ValueError("dwell and gap must be non-negative.")
+    if (
+        not math.isfinite(dwell_s)
+        or not math.isfinite(gap_s)
+        or dwell_s < 0.0
+        or gap_s < 0.0
+    ):
+        raise ValueError("dwell and gap must be finite and non-negative.")
     if (
         not allow_high_amplitude
         and duty_width_from_code(amplitude_code) > MAX_DEFAULT_WIDTH
@@ -132,9 +137,20 @@ def build_burst_plan(
     return steps
 
 
-def run_burst(link, steps, sleep=time.sleep) -> None:
-    """Write every step to both boards, then sleep its delay."""
-    for step in steps:
+def run_burst(link, steps, sleep=time.sleep, trim=None) -> None:
+    """Write every step to both boards, then sleep its delay.
+
+    ``trim`` is sent after the first priming frame, so the secondary receives
+    it between frames, where the firmware recognizes the command.
+    """
+    if not steps:
+        return
+    first, *rest = steps
+    link.send(first.payload_a, first.payload_b)
+    sleep(first.delay_s)
+    if trim is not None:
+        link.send_trim(trim)
+    for step in rest:
         link.send(step.payload_a, step.payload_b)
         sleep(step.delay_s)
 
@@ -248,9 +264,8 @@ def main(argv=None) -> int:
         link = dual_board.BoardLink(args.port_a, args.port_b, baudrate=args.baud)
         with link:
             if args.trim is not None:
-                link.send_trim(args.trim)
-                print(f"trim {args.trim}")
-            run_burst(link, steps)
+                print(f"trim {args.trim} (after the first priming frame)")
+            run_burst(link, steps, trim=args.trim)
     except OSError as error:
         print(f"Serial error: {error}", file=sys.stderr)
         return 2
